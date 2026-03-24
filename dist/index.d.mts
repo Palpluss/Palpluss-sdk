@@ -1,27 +1,11 @@
-interface HttpTransportOptions {
-    apiKey: string;
-    baseUrl: string;
+type TransactionStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED' | 'CANCELLED' | 'EXPIRED' | 'REVERSED';
+type TransactionType = 'STK' | 'B2C' | 'WALLET_TOPUP_SERVICE_TOKENS';
+type ChannelType = 'PAYBILL' | 'TILL' | 'SHORTCODE';
+interface PalPlussOptions {
+    apiKey?: string;
     timeout?: number;
     autoRetryOnRateLimit?: boolean;
     maxRetries?: number;
-}
-interface RequestOptions {
-    body?: Record<string, unknown>;
-    query?: Record<string, string | number | undefined>;
-    idempotencyKey?: string;
-    requestId?: string;
-}
-declare class HttpTransport {
-    private readonly apiKey;
-    private readonly baseUrl;
-    private readonly timeout;
-    private readonly autoRetryOnRateLimit;
-    private readonly maxRetries;
-    private readonly authHeader;
-    constructor(options: HttpTransportOptions);
-    request<T>(method: string, path: string, options?: RequestOptions): Promise<T>;
-    private buildUrl;
-    private sleep;
 }
 
 interface StkInitiateRequest {
@@ -50,12 +34,6 @@ interface StkInitiateResponse {
     resultDescription: string;
     createdAt: string;
     updatedAt: string;
-}
-
-declare class StkModule {
-    private readonly transport;
-    constructor(transport: HttpTransport);
-    initiate(params: StkInitiateRequest): Promise<StkInitiateResponse>;
 }
 
 interface B2cPayoutRequest {
@@ -87,15 +65,6 @@ interface B2cPayoutResponse {
     channel: null;
     createdAt: string;
     updatedAt: string;
-}
-
-interface B2cPayoutOptions {
-    idempotencyKey?: string;
-}
-declare class B2cModule {
-    private readonly transport;
-    constructor(transport: HttpTransport);
-    payout(params: B2cPayoutRequest, options?: B2cPayoutOptions): Promise<B2cPayoutResponse>;
 }
 
 interface ServiceWalletBalance {
@@ -131,43 +100,6 @@ interface ServiceTopupResponse {
     updatedAt: string;
 }
 
-interface WalletTopupOptions {
-    idempotencyKey?: string;
-}
-declare class WalletsModule {
-    private readonly transport;
-    constructor(transport: HttpTransport);
-    serviceBalance(): Promise<ServiceWalletBalance>;
-    serviceTopup(params: ServiceTopupRequest, options?: WalletTopupOptions): Promise<ServiceTopupResponse>;
-}
-
-type TransactionStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED' | 'CANCELLED' | 'EXPIRED' | 'REVERSED';
-type TransactionType = 'STK' | 'B2C' | 'WALLET_TOPUP_SERVICE_TOKENS';
-type ChannelType = 'PAYBILL' | 'TILL' | 'SHORTCODE';
-interface PalPlussOptions {
-    apiKey?: string;
-    baseUrl?: string;
-    timeout?: number;
-    autoRetryOnRateLimit?: boolean;
-    maxRetries?: number;
-}
-interface ApiSuccessResponse<T> {
-    success: true;
-    data: T;
-    requestId: string;
-}
-interface ApiErrorBody {
-    message: string;
-    code: string;
-    details?: Record<string, unknown>;
-}
-interface ApiErrorResponse {
-    success: false;
-    error: ApiErrorBody;
-    requestId: string;
-}
-type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
-
 interface Transaction {
     transaction_id: string;
     tenant_id: string;
@@ -199,13 +131,6 @@ interface TransactionListResponse {
     next_cursor: string | null;
 }
 
-declare class TransactionsModule {
-    private readonly transport;
-    constructor(transport: HttpTransport);
-    get(id: string): Promise<Transaction>;
-    list(params?: TransactionListParams): Promise<TransactionListResponse>;
-}
-
 interface PaymentWalletChannel {
     id: string;
     tenantId: string;
@@ -232,21 +157,26 @@ interface UpdateChannelRequest {
     isDefault?: boolean;
 }
 
-declare class ChannelsModule {
-    private readonly transport;
-    constructor(transport: HttpTransport);
-    create(params: CreateChannelRequest): Promise<PaymentWalletChannel>;
-    update(id: string, params: UpdateChannelRequest): Promise<PaymentWalletChannel>;
-    delete(id: string): Promise<void>;
-}
-
 declare class PalPluss {
-    readonly stk: StkModule;
-    readonly b2c: B2cModule;
-    readonly wallets: WalletsModule;
-    readonly transactions: TransactionsModule;
-    readonly channels: ChannelsModule;
+    private readonly _stk;
+    private readonly _b2c;
+    private readonly _wallets;
+    private readonly _transactions;
+    private readonly _channels;
     constructor(options?: PalPlussOptions);
+    stkPush(params: StkInitiateRequest): Promise<StkInitiateResponse>;
+    b2cPayout(params: B2cPayoutRequest, options?: {
+        idempotencyKey?: string;
+    }): Promise<B2cPayoutResponse>;
+    getServiceBalance(): Promise<ServiceWalletBalance>;
+    serviceTopup(params: ServiceTopupRequest, options?: {
+        idempotencyKey?: string;
+    }): Promise<ServiceTopupResponse>;
+    getTransaction(id: string): Promise<Transaction>;
+    listTransactions(params?: TransactionListParams): Promise<TransactionListResponse>;
+    createChannel(params: CreateChannelRequest): Promise<PaymentWalletChannel>;
+    updateChannel(id: string, params: UpdateChannelRequest): Promise<PaymentWalletChannel>;
+    deleteChannel(id: string): Promise<void>;
 }
 
 declare class PalPlussApiError extends Error {
@@ -301,4 +231,4 @@ interface WebhookPayload {
  */
 declare function parseWebhookPayload(raw: string): WebhookPayload;
 
-export { type ApiErrorBody, type ApiErrorResponse, type ApiResponse, type ApiSuccessResponse, B2cModule, type B2cPayoutRequest, type B2cPayoutResponse, type ChannelType, ChannelsModule, type CreateChannelRequest, HttpTransport, PalPluss, PalPlussApiError, type PalPlussOptions, type PaymentWalletChannel, RateLimitError, type ServiceTopupRequest, type ServiceTopupResponse, type ServiceWalletBalance, type StkInitiateRequest, type StkInitiateResponse, StkModule, type Transaction, type TransactionListParams, type TransactionListResponse, type TransactionStatus, type TransactionType, TransactionsModule, type UpdateChannelRequest, WalletsModule, type WebhookEventType, type WebhookPayload, type WebhookTransaction, parseWebhookPayload };
+export { type B2cPayoutRequest, type B2cPayoutResponse, type ChannelType, type CreateChannelRequest, PalPluss, PalPlussApiError, type PalPlussOptions, type PaymentWalletChannel, RateLimitError, type ServiceTopupRequest, type ServiceTopupResponse, type ServiceWalletBalance, type StkInitiateRequest, type StkInitiateResponse, type Transaction, type TransactionListParams, type TransactionListResponse, type TransactionStatus, type TransactionType, type UpdateChannelRequest, type WebhookEventType, type WebhookPayload, type WebhookTransaction, parseWebhookPayload };

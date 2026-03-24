@@ -1,11 +1,15 @@
 # @palpluss/sdk
 
-Official PalPluss TypeScript SDK for M-Pesa STK Push, B2C payouts, wallet management, and more.
+Official PalPluss TypeScript SDK — M-Pesa STK Push, B2C payouts, wallet management, and more.
 
 ## Installation
 
 ```bash
 npm install @palpluss/sdk
+# or
+pnpm add @palpluss/sdk
+# or
+yarn add @palpluss/sdk
 ```
 
 ## Quick Start
@@ -13,113 +17,125 @@ npm install @palpluss/sdk
 ```typescript
 import { PalPluss } from '@palpluss/sdk';
 
-const client = new PalPluss({
-  apiKey: 'pk_test_your_api_key',
-  baseUrl: 'https://api.palpluss.com/v1', // optional, defaults to production
-});
+const palpluss = new PalPluss({ apiKey: 'pk_live_your_api_key' });
 
-// STK Push
-const stk = await client.stk.initiate({
-  amount: 100,
+const stk = await palpluss.stkPush({
+  amount: 500,
   phone: '254712345678',
   accountReference: 'ORDER-001',
-  transactionDesc: 'Payment for order',
 });
 
-// B2C Payout
-const payout = await client.b2c.payout({
-  amount: 1000,
-  phone: '254712345678',
-  reference: 'SALARY-001',
-});
-
-// Wallet Balance
-const balance = await client.wallets.serviceBalance();
-
-// List Transactions
-const transactions = await client.transactions.list({ limit: 10, status: 'SUCCESS' });
+console.log(stk.transactionId); // tx_...
+console.log(stk.status);        // PENDING
 ```
 
 ## Configuration
 
+```typescript
+const palpluss = new PalPluss({
+  apiKey: 'pk_live_your_api_key', // or set PALPLUSS_API_KEY env var
+});
+```
+
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `apiKey` | `string` | `PALPLUSS_API_KEY` env var | Your API key |
-| `baseUrl` | `string` | `https://api.palpluss.com/v1` | API base URL |
-| `timeout` | `number` | `30000` | Request timeout in milliseconds |
-| `autoRetryOnRateLimit` | `boolean` | `true` | Auto-retry on 429 responses |
+| `apiKey` | `string` | `PALPLUSS_API_KEY` env var | Your PalPluss API key |
+| `timeout` | `number` | `30000` | Request timeout in ms |
+| `autoRetryOnRateLimit` | `boolean` | `true` | Auto-retry on HTTP 429 |
 | `maxRetries` | `number` | `3` | Maximum retry attempts |
 
-## Modules
+The SDK always connects to `https://api.palpluss.com`. Set `PALPLUSS_BASE_URL` to point at a different environment (e.g. staging).
+
+## Methods
 
 ### STK Push
 
+Prompt a customer to complete a payment on their phone.
+
 ```typescript
-const result = await client.stk.initiate({
-  amount: 100,
-  phone: '254712345678',
-  accountReference: 'ORDER-001',
-  transactionDesc: 'Payment',
-  channelId: 'optional-channel-uuid',
-  callbackUrl: 'https://your-server.com/webhook',
-  credential_id: 'optional-credential-uuid',
+const stk = await palpluss.stkPush({
+  amount: 500,                                // required, KES
+  phone: '254712345678',                      // required
+  accountReference: 'ORDER-001',              // optional
+  transactionDesc: 'Payment for order',       // optional
+  channelId: 'uuid',                          // optional
+  callbackUrl: 'https://you.com/webhooks',    // optional
+  credential_id: 'uuid',                      // optional
 });
 ```
 
-### B2C Payouts
+### B2C Payout
+
+Send money to a customer's M-Pesa.
 
 ```typescript
-// Auto-generates idempotency key
-const result = await client.b2c.payout({
-  amount: 1000,
-  phone: '254712345678',
-  currency: 'KES',
-  reference: 'REF-001',
-  description: 'Payout',
+// Idempotency key is auto-generated per call
+const payout = await palpluss.b2cPayout({
+  amount: 1000,             // required, min 10 KES
+  phone: '254712345678',    // required
+  currency: 'KES',          // optional
+  reference: 'REF-001',     // optional
+  description: 'Salary',    // optional
+  channelId: 'uuid',        // optional
+  callback_url: 'https://…', // optional
 });
 
-// Custom idempotency key
-const result = await client.b2c.payout(
+// Supply your own key for safe retries
+const payout = await palpluss.b2cPayout(
   { amount: 1000, phone: '254712345678' },
-  { idempotencyKey: 'my-unique-key' },
+  { idempotencyKey: 'salary-jan-001' },
 );
 ```
 
-### Wallets
+### Service Wallet
 
 ```typescript
-const balance = await client.wallets.serviceBalance();
-const topup = await client.wallets.serviceTopup({
+// Check balance
+const balance = await palpluss.getServiceBalance();
+console.log(balance.availableBalance, balance.currency);
+
+// Top up via STK Push
+const topup = await palpluss.serviceTopup({
   amount: 5000,
   phone: '254712345678',
+  accountReference: 'TOPUP-001',     // optional
+  transactionDesc: 'Wallet topup',   // optional
 });
 ```
 
 ### Transactions
 
 ```typescript
-const tx = await client.transactions.get('transaction-id');
-const list = await client.transactions.list({
-  limit: 20,
-  cursor: 'optional-cursor',
-  status: 'SUCCESS',
-  type: 'STK',
+// Fetch a single transaction
+const tx = await palpluss.getTransaction('tx_id_here');
+
+// List with filters
+const page = await palpluss.listTransactions({
+  limit: 20,           // 1–100, default 20
+  status: 'SUCCESS',   // optional
+  type: 'STK',         // optional: 'STK' | 'B2C'
 });
+
+// Paginate — pass next_cursor as-is, never construct it manually
+if (page.next_cursor) {
+  const next = await palpluss.listTransactions({ cursor: page.next_cursor });
+}
 ```
 
 ### Payment Channels
 
 ```typescript
-const channel = await client.channels.create({
-  type: 'PAYBILL',
+const channel = await palpluss.createChannel({
+  type: 'PAYBILL',         // 'PAYBILL' | 'TILL' | 'SHORTCODE'
   shortcode: '123456',
   name: 'My Paybill',
-  accountNumber: 'ACC001',
-  isDefault: true,
+  accountNumber: 'ACC001', // optional
+  isDefault: true,         // optional
 });
 
-await client.channels.update(channel.id, { name: 'New Name' });
-await client.channels.delete(channel.id);
+await palpluss.updateChannel(channel.id, { name: 'New Name' });
+
+await palpluss.deleteChannel(channel.id); // returns void
 ```
 
 ## Webhooks
@@ -127,17 +143,21 @@ await client.channels.delete(channel.id);
 ```typescript
 import { parseWebhookPayload } from '@palpluss/sdk';
 
-const payload = parseWebhookPayload(requestBodyString);
+// In your HTTP handler:
+const payload = parseWebhookPayload(req.body); // raw string
 
 switch (payload.event_type) {
   case 'transaction.success':
-    // Handle successful payment
+    console.log('Paid:', payload.transaction.amount, 'KES');
+    console.log('Receipt:', payload.transaction.mpesa_receipt);
     break;
   case 'transaction.failed':
-    // Handle failure
+    console.log('Failed:', payload.transaction.result_desc);
     break;
 }
 ```
+
+Webhook event types: `transaction.success`, `transaction.failed`, `transaction.cancelled`, `transaction.expired`, `transaction.updated`.
 
 ## Error Handling
 
@@ -145,15 +165,16 @@ switch (payload.event_type) {
 import { PalPlussApiError, RateLimitError } from '@palpluss/sdk';
 
 try {
-  await client.stk.initiate({ amount: 100, phone: '254712345678' });
+  await palpluss.stkPush({ amount: 500, phone: '254712345678' });
 } catch (error) {
   if (error instanceof RateLimitError) {
+    // Retry after this many seconds
     console.log('Retry after:', error.retryAfter, 'seconds');
   } else if (error instanceof PalPlussApiError) {
-    console.log(error.code);       // e.g. 'INVALID_PHONE'
-    console.log(error.httpStatus);  // e.g. 400
-    console.log(error.requestId);   // request trace ID
-    console.log(error.details);     // additional error details
+    console.log(error.code);       // 'INVALID_PHONE', 'INSUFFICIENT_FUNDS', etc.
+    console.log(error.httpStatus); // 400, 402, 409, etc.
+    console.log(error.requestId);  // trace ID for support
+    console.log(error.details);    // additional context
   }
 }
 ```

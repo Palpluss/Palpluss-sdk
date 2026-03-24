@@ -13,7 +13,6 @@ export type ChannelType = 'PAYBILL' | 'TILL' | 'SHORTCODE';
 
 export interface PalPlussOptions {
   apiKey?: string;
-  baseUrl?: string;
   timeout?: number;
   autoRetryOnRateLimit?: boolean;
   maxRetries?: number;

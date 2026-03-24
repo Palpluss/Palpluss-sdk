@@ -20,15 +20,9 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/index.ts
 var index_exports = {};
 __export(index_exports, {
-  B2cModule: () => B2cModule,
-  ChannelsModule: () => ChannelsModule,
-  HttpTransport: () => HttpTransport,
   PalPluss: () => PalPluss,
   PalPlussApiError: () => PalPlussApiError,
   RateLimitError: () => RateLimitError,
-  StkModule: () => StkModule,
-  TransactionsModule: () => TransactionsModule,
-  WalletsModule: () => WalletsModule,
   parseWebhookPayload: () => parseWebhookPayload
 });
 module.exports = __toCommonJS(index_exports);
@@ -266,18 +260,19 @@ var ChannelsModule = class {
 };
 
 // src/client.ts
+var DEFAULT_BASE_URL = "https://api.palpluss.com/v1";
 var PalPluss = class {
-  stk;
-  b2c;
-  wallets;
-  transactions;
-  channels;
+  _stk;
+  _b2c;
+  _wallets;
+  _transactions;
+  _channels;
   constructor(options) {
     const apiKey = options?.apiKey ?? process.env.PALPLUSS_API_KEY;
     if (!apiKey) {
       throw new Error("PalPluss: apiKey is required");
     }
-    const baseUrl = options?.baseUrl ?? process.env.PALPLUSS_BASE_URL ?? "https://api.palpluss.com/v1";
+    const baseUrl = process.env.PALPLUSS_BASE_URL ?? DEFAULT_BASE_URL;
     const transport = new HttpTransport({
       apiKey,
       baseUrl,
@@ -285,11 +280,38 @@ var PalPluss = class {
       autoRetryOnRateLimit: options?.autoRetryOnRateLimit,
       maxRetries: options?.maxRetries
     });
-    this.stk = new StkModule(transport);
-    this.b2c = new B2cModule(transport);
-    this.wallets = new WalletsModule(transport);
-    this.transactions = new TransactionsModule(transport);
-    this.channels = new ChannelsModule(transport);
+    this._stk = new StkModule(transport);
+    this._b2c = new B2cModule(transport);
+    this._wallets = new WalletsModule(transport);
+    this._transactions = new TransactionsModule(transport);
+    this._channels = new ChannelsModule(transport);
+  }
+  stkPush(params) {
+    return this._stk.initiate(params);
+  }
+  b2cPayout(params, options) {
+    return this._b2c.payout(params, options);
+  }
+  getServiceBalance() {
+    return this._wallets.serviceBalance();
+  }
+  serviceTopup(params, options) {
+    return this._wallets.serviceTopup(params, options);
+  }
+  getTransaction(id) {
+    return this._transactions.get(id);
+  }
+  listTransactions(params) {
+    return this._transactions.list(params);
+  }
+  createChannel(params) {
+    return this._channels.create(params);
+  }
+  updateChannel(id, params) {
+    return this._channels.update(id, params);
+  }
+  deleteChannel(id) {
+    return this._channels.delete(id);
   }
 };
 
@@ -335,14 +357,8 @@ function parseWebhookPayload(raw) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  B2cModule,
-  ChannelsModule,
-  HttpTransport,
   PalPluss,
   PalPlussApiError,
   RateLimitError,
-  StkModule,
-  TransactionsModule,
-  WalletsModule,
   parseWebhookPayload
 });
