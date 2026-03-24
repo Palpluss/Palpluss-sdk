@@ -70,3 +70,24 @@ jobs:
       - name: Test
         working-directory: packages/python
         run: pytest
+
+  php:
+    name: PHP SDK — Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          tools: composer
+
+      - name: Install dependencies
+        working-directory: packages/php
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Test
+        working-directory: packages/php
+        run: vendor/bin/phpunit
