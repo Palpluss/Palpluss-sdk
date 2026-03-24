@@ -13,6 +13,8 @@ All SDKs are built against a single shared API contract (`openapi/palpluss-v1.ya
 | PHP | [`palpluss/sdk`](packages/php) | ✅ Available | [README](packages/php/README.md) |
 | Go | [`github.com/palpluss/palpluss-go`](packages/go) | ✅ Available | [README](packages/go/README.md) |
 
+For full usage examples, parameters, and response shapes for every SDK, see [docs/usage.md](docs/usage.md).
+
 ## Quick Start
 
 ### TypeScript / Node.js
@@ -32,8 +34,8 @@ const result = await client.stkPush({
   accountReference: 'ORDER-001',
 });
 
-console.log(result.transactionId); // tx_...
-console.log(result.status);        // PENDING
+console.log(result.transactionId); // "tx_..."
+console.log(result.status);        // "PENDING"
 ```
 
 ### Python
@@ -48,8 +50,8 @@ from palpluss import PalPluss
 client = PalPluss(api_key="pk_live_...")
 
 result = client.stk_push(amount=500, phone="254712345678")
-print(result["transactionId"])  # tx_...
-print(result["status"])         # PENDING
+print(result["transactionId"])  # "tx_..."
+print(result["status"])         # "PENDING"
 ```
 
 Async support is included out of the box:
@@ -73,8 +75,8 @@ use PalPluss\PalPluss;
 $client = new PalPluss(apiKey: 'pk_live_...');
 
 $result = $client->stkPush(amount: 500, phone: '254712345678');
-echo $result['transactionId']; // tx_...
-echo $result['status'];        // PENDING
+echo $result['transactionId']; // "tx_..."
+echo $result['status'];        // "PENDING"
 ```
 
 ### Go
@@ -95,8 +97,8 @@ result, err := client.StkPush(ctx, palpluss.StkPushParams{
     Amount: 500,
     Phone:  "254712345678",
 })
-fmt.Println(result.TransactionID) // tx_...
-fmt.Println(result.Status)        // PENDING
+fmt.Println(result.TransactionID) // "tx_..."
+fmt.Println(result.Status)        // "PENDING"
 ```
 
 ## API Reference
@@ -114,14 +116,9 @@ All SDKs expose the same set of operations against the PalPluss REST API v1:
 | Create Channel | `createChannel()` | `create_channel()` | `createChannel()` | `CreateChannel()` |
 | Update Channel | `updateChannel()` | `update_channel()` | `updateChannel()` | `UpdateChannel()` |
 | Delete Channel | `deleteChannel()` | `delete_channel()` | `deleteChannel()` | `DeleteChannel()` |
+| Parse Webhook | `parseWebhookPayload()` | `parse_webhook_payload()` | `Webhooks::parsePayload()` | `ParseWebhookPayload()` |
 
-Each SDK also provides webhook payload parsing:
-
-| TypeScript | Python | PHP | Go |
-|---|---|---|---|
-| `parseWebhookPayload()` | `parse_webhook_payload()` | `Webhooks::parsePayload()` | `ParseWebhookPayload()` |
-
-See each SDK's README for full parameter and return-type documentation.
+See [docs/usage.md](docs/usage.md) for complete parameter tables, code examples, and response shapes.
 
 ## API Contract
 
@@ -143,9 +140,12 @@ palpluss-sdk/
 ├── .changeset/           Changesets for TypeScript versioning
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml        CI — lint, typecheck, test, build (all SDKs)
-│       └── release.yml   Release — publishes @palpluss/sdk to npm
+│       ├── ci.yml                CI — lint, typecheck, test, build (all SDKs)
+│       ├── release.yml           Release — publishes @palpluss/sdk to npm (OIDC)
+│       ├── release-python.yml    Release — publishes palpluss to PyPI (OIDC)
+│       └── release-php.yml       Release — syncs packages/php to palpluss-php repo
 ├── docs/
+│   ├── usage.md          Full usage guide — all SDKs, all operations
 │   ├── contributing.md   Contributor workflow
 │   ├── sdk-design-principles.md
 │   ├── versioning.md
@@ -166,6 +166,17 @@ palpluss-sdk/
 │   └── go/               palpluss-go          — Go 1.21+, zero deps
 └── scripts/              Tooling and automation
 ```
+
+## Release Workflows
+
+| SDK | Trigger | Publishes to |
+|---|---|---|
+| TypeScript | Push to `main` + changesets | npm (`@palpluss/sdk`) |
+| Python | `python-v*` tag | PyPI (`palpluss`) |
+| PHP | Push to `main` + `php-v*` tags | GitHub (`Palpluss/palpluss-php`) → Packagist |
+| Go | Tag on module path | `pkg.go.dev` (automatic) |
+
+All publish workflows use keyless authentication (OIDC / deploy keys) — no long-lived secrets are stored.
 
 ## Design Principles
 
