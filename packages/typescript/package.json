@@ -42,7 +42,8 @@
     "release": "pnpm build && changeset publish"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.0",

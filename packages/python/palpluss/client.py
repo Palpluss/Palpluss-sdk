@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from .http.transport import DEFAULT_BASE_URL, AsyncHttpTransport, HttpTransport
 from .modules.b2c import AsyncB2cModule, B2cModule
@@ -78,7 +78,7 @@ class PalPluss:
         callback_url: str | None = None,
         credential_id: str | None = None,
     ) -> StkInitiateResponse:
-        return self._stk.initiate(
+        return cast(StkInitiateResponse, self._stk.initiate(
             amount=amount,
             phone=phone,
             account_reference=account_reference,
@@ -86,7 +86,7 @@ class PalPluss:
             channel_id=channel_id,
             callback_url=callback_url,
             credential_id=credential_id,
-        )
+        ))
 
     # ── B2C Payout ──────────────────────────────────────────────────────────
 
@@ -103,7 +103,7 @@ class PalPluss:
         callback_url: str | None = None,
         idempotency_key: str | None = None,
     ) -> B2cPayoutResponse:
-        return self._b2c.payout(
+        return cast(B2cPayoutResponse, self._b2c.payout(
             amount=amount,
             phone=phone,
             currency=currency,
@@ -113,12 +113,12 @@ class PalPluss:
             credential_id=credential_id,
             callback_url=callback_url,
             idempotency_key=idempotency_key,
-        )
+        ))
 
     # ── Service Wallet ───────────────────────────────────────────────────────
 
     def get_service_balance(self) -> ServiceWalletBalance:
-        return self._wallets.service_balance()
+        return cast(ServiceWalletBalance, self._wallets.service_balance())
 
     def service_topup(
         self,
@@ -129,18 +129,18 @@ class PalPluss:
         transaction_desc: str | None = None,
         idempotency_key: str | None = None,
     ) -> ServiceTopupResponse:
-        return self._wallets.service_topup(
+        return cast(ServiceTopupResponse, self._wallets.service_topup(
             amount=amount,
             phone=phone,
             account_reference=account_reference,
             transaction_desc=transaction_desc,
             idempotency_key=idempotency_key,
-        )
+        ))
 
     # ── Transactions ─────────────────────────────────────────────────────────
 
     def get_transaction(self, transaction_id: str) -> Transaction:
-        return self._transactions.get(transaction_id)
+        return cast(Transaction, self._transactions.get(transaction_id))
 
     def list_transactions(
         self,
@@ -150,12 +150,12 @@ class PalPluss:
         status: str | None = None,
         type: Literal["STK", "B2C"] | None = None,
     ) -> TransactionListResponse:
-        return self._transactions.list(
+        return cast(TransactionListResponse, self._transactions.list(
             limit=limit,
             cursor=cursor,
             status=status,
             type=type,
-        )
+        ))
 
     # ── Payment Wallet Channels ───────────────────────────────────────────────
 
@@ -168,13 +168,13 @@ class PalPluss:
         account_number: str | None = None,
         is_default: bool | None = None,
     ) -> PaymentWalletChannel:
-        return self._channels.create(
+        return cast(PaymentWalletChannel, self._channels.create(
             type=type,
             shortcode=shortcode,
             name=name,
             account_number=account_number,
             is_default=is_default,
-        )
+        ))
 
     def update_channel(
         self,
@@ -186,14 +186,14 @@ class PalPluss:
         account_number: str | None = None,
         is_default: bool | None = None,
     ) -> PaymentWalletChannel:
-        return self._channels.update(
+        return cast(PaymentWalletChannel, self._channels.update(
             channel_id,
             type=type,
             shortcode=shortcode,
             name=name,
             account_number=account_number,
             is_default=is_default,
-        )
+        ))
 
     def delete_channel(self, channel_id: str) -> None:
         self._channels.delete(channel_id)
@@ -272,7 +272,7 @@ class AsyncPalPluss:
         callback_url: str | None = None,
         credential_id: str | None = None,
     ) -> StkInitiateResponse:
-        return await self._stk.initiate(
+        return cast(StkInitiateResponse, await self._stk.initiate(
             amount=amount,
             phone=phone,
             account_reference=account_reference,
@@ -280,7 +280,7 @@ class AsyncPalPluss:
             channel_id=channel_id,
             callback_url=callback_url,
             credential_id=credential_id,
-        )
+        ))
 
     # ── B2C Payout ──────────────────────────────────────────────────────────
 
@@ -297,7 +297,7 @@ class AsyncPalPluss:
         callback_url: str | None = None,
         idempotency_key: str | None = None,
     ) -> B2cPayoutResponse:
-        return await self._b2c.payout(
+        return cast(B2cPayoutResponse, await self._b2c.payout(
             amount=amount,
             phone=phone,
             currency=currency,
@@ -307,12 +307,12 @@ class AsyncPalPluss:
             credential_id=credential_id,
             callback_url=callback_url,
             idempotency_key=idempotency_key,
-        )
+        ))
 
     # ── Service Wallet ───────────────────────────────────────────────────────
 
     async def get_service_balance(self) -> ServiceWalletBalance:
-        return await self._wallets.service_balance()
+        return cast(ServiceWalletBalance, await self._wallets.service_balance())
 
     async def service_topup(
         self,
@@ -323,18 +323,18 @@ class AsyncPalPluss:
         transaction_desc: str | None = None,
         idempotency_key: str | None = None,
     ) -> ServiceTopupResponse:
-        return await self._wallets.service_topup(
+        return cast(ServiceTopupResponse, await self._wallets.service_topup(
             amount=amount,
             phone=phone,
             account_reference=account_reference,
             transaction_desc=transaction_desc,
             idempotency_key=idempotency_key,
-        )
+        ))
 
     # ── Transactions ─────────────────────────────────────────────────────────
 
     async def get_transaction(self, transaction_id: str) -> Transaction:
-        return await self._transactions.get(transaction_id)
+        return cast(Transaction, await self._transactions.get(transaction_id))
 
     async def list_transactions(
         self,
@@ -344,12 +344,12 @@ class AsyncPalPluss:
         status: str | None = None,
         type: Literal["STK", "B2C"] | None = None,
     ) -> TransactionListResponse:
-        return await self._transactions.list(
+        return cast(TransactionListResponse, await self._transactions.list(
             limit=limit,
             cursor=cursor,
             status=status,
             type=type,
-        )
+        ))
 
     # ── Payment Wallet Channels ───────────────────────────────────────────────
 
@@ -362,13 +362,13 @@ class AsyncPalPluss:
         account_number: str | None = None,
         is_default: bool | None = None,
     ) -> PaymentWalletChannel:
-        return await self._channels.create(
+        return cast(PaymentWalletChannel, await self._channels.create(
             type=type,
             shortcode=shortcode,
             name=name,
             account_number=account_number,
             is_default=is_default,
-        )
+        ))
 
     async def update_channel(
         self,
@@ -380,14 +380,14 @@ class AsyncPalPluss:
         account_number: str | None = None,
         is_default: bool | None = None,
     ) -> PaymentWalletChannel:
-        return await self._channels.update(
+        return cast(PaymentWalletChannel, await self._channels.update(
             channel_id,
             type=type,
             shortcode=shortcode,
             name=name,
             account_number=account_number,
             is_default=is_default,
-        )
+        ))
 
     async def delete_channel(self, channel_id: str) -> None:
         await self._channels.delete(channel_id)
