@@ -1,0 +1,602 @@
+openapi: 3.1.0
+info:
+  title: PalPluss API
+  version: "1"
+  description: |
+    The PalPluss API provides M-Pesa STK Push, B2C payouts, wallet management,
+    transaction queries, and payment channel configuration for Kenyan businesses.
+
+    **This file is the shared API contract source of truth for all PalPluss SDKs.**
+    Every language SDK (TypeScript, Python, PHP, Go) must implement exactly
+    the endpoints, request shapes, response shapes, and error codes defined here.
+
+servers:
+  - url: https://api.palpluss.com/v1
+    description: Production
+
+# ---------------------------------------------------------------------------
+# Authentication
+# ---------------------------------------------------------------------------
+# HTTP Basic auth — API key as username, empty password.
+# Authorization: Basic base64("<apiKey>:")
+components:
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+      description: |
+        API key as username, empty password.
+        SDK encodes automatically: `Basic base64("<apiKey>:")`
+
+  schemas:
+    # -----------------------------------------------------------------------
+    # Enums
+    # -----------------------------------------------------------------------
+    TransactionStatus:
+      type: string
+      enum: [PENDING, PROCESSING, SUCCESS, FAILED, CANCELLED, EXPIRED, REVERSED]
+
+    TransactionType:
+      type: string
+      enum: [STK, B2C, WALLET_TOPUP_SERVICE_TOKENS]
+
+    ChannelType:
+      type: string
+      enum: [PAYBILL, TILL, SHORTCODE]
+
+    # -----------------------------------------------------------------------
+    # Response envelope
+    # -----------------------------------------------------------------------
+    SuccessEnvelope:
+      type: object
+      required: [success, data, requestId]
+      properties:
+        success:
+          type: boolean
+          const: true
+        data:
+          description: Unwrapped response payload
+        requestId:
+          type: string
+          format: uuid
+
+    ErrorBody:
+      type: object
+      required: [message, code]
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+          description: Machine-readable error code (see error reference)
+        details:
+          type: object
+          additionalProperties: true
+
+    ErrorEnvelope:
+      type: object
+      required: [success, error, requestId]
+      properties:
+        success:
+          type: boolean
+          const: false
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+        requestId:
+          type: string
+          format: uuid
+
+    # -----------------------------------------------------------------------
+    # STK
+    # -----------------------------------------------------------------------
+    StkInitiateRequest:
+      type: object
+      required: [amount, phone]
+      properties:
+        amount:          { type: number, minimum: 1, description: "Amount in KES" }
+        phone:           { type: string }
+        accountReference:{ type: string, maxLength: 120 }
+        transactionDesc: { type: string, maxLength: 255 }
+        channelId:       { type: string, format: uuid }
+        callbackUrl:     { type: string, maxLength: 500 }
+        credential_id:   { type: string, format: uuid }
+
+    StkInitiateResponse:
+      type: object
+      properties:
+        transactionId:       { type: string, format: uuid }
+        tenantId:            { type: string, format: uuid }
+        channelId:           { type: [string, "null"], format: uuid }
+        type:                { type: string, const: STK }
+        status:              { type: string, const: PENDING }
+        amount:              { type: number }
+        currency:            { type: string }
+        phone:               { type: string }
+        accountReference:    { type: string }
+        transactionDesc:     { type: string }
+        providerRequestId:   { type: string }
+        providerCheckoutId:  { type: string }
+        resultCode:          { type: string }
+        resultDescription:   { type: string }
+        createdAt:           { type: string, format: date-time }
+        updatedAt:           { type: string, format: date-time }
+
+    # -----------------------------------------------------------------------
+    # B2C
+    # -----------------------------------------------------------------------
+    B2cPayoutRequest:
+      type: object
+      required: [amount, phone]
+      properties:
+        amount:        { type: number, minimum: 10, description: "Amount in KES, min 10" }
+        phone:         { type: string }
+        currency:      { type: string, enum: [KES] }
+        reference:     { type: string, maxLength: 120 }
+        description:   { type: string, maxLength: 255 }
+        channelId:     { type: string, format: uuid }
+        credential_id: { type: string, format: uuid }
+        callback_url:  { type: string, format: uri }
+
+    B2cPayoutResponse:
+      type: object
+      properties:
+        transactionId:       { type: string, format: uuid }
+        tenantId:            { type: string, format: uuid }
+        channelId:           { type: [string, "null"], format: uuid }
+        type:                { type: string, const: B2C }
+        status:              { type: string, const: PENDING }
+        amount:              { type: number }
+        currency:            { type: string }
+        phone:               { type: string }
+        reference:           { type: [string, "null"] }
+        description:         { type: [string, "null"] }
+        providerRequestId:   { type: [string, "null"] }
+        providerCheckoutId:  { type: [string, "null"] }
+        resultCode:          { type: [string, "null"] }
+        resultDescription:   { type: string }
+        idempotencyKey:      { type: [string, "null"] }
+        channel:             { type: "null" }
+        createdAt:           { type: string, format: date-time }
+        updatedAt:           { type: string, format: date-time }
+
+    # -----------------------------------------------------------------------
+    # Wallets
+    # -----------------------------------------------------------------------
+    ServiceWalletBalance:
+      type: object
+      properties:
+        walletId:          { type: string, format: uuid }
+        tenantId:          { type: string, format: uuid }
+        currency:          { type: string }
+        availableBalance:  { type: number }
+        ledgerBalance:     { type: number }
+        updatedAt:         { type: string, format: date-time }
+
+    ServiceTopupRequest:
+      type: object
+      required: [amount, phone]
+      properties:
+        amount:           { type: number, minimum: 1 }
+        phone:            { type: string }
+        accountReference: { type: string, maxLength: 120 }
+        transactionDesc:  { type: string, maxLength: 255 }
+
+    ServiceTopupResponse:
+      type: object
+      properties:
+        transactionId:      { type: string, format: uuid }
+        tenantId:           { type: string, format: uuid }
+        type:               { type: string, const: WALLET_TOPUP_SERVICE_TOKENS }
+        status:             { type: string, const: PENDING }
+        amount:             { type: number }
+        currency:           { type: string }
+        phone:              { type: string }
+        accountReference:   { type: string }
+        transactionDesc:    { type: string }
+        providerRequestId:  { type: string }
+        providerCheckoutId: { type: string }
+        resultCode:         { type: string }
+        resultDescription:  { type: string }
+        idempotencyKey:     { type: [string, "null"] }
+        createdAt:          { type: string, format: date-time }
+        updatedAt:          { type: string, format: date-time }
+
+    # -----------------------------------------------------------------------
+    # Transactions  (NOTE: snake_case field names — API returns snake_case here)
+    # -----------------------------------------------------------------------
+    Transaction:
+      type: object
+      description: "Field names are snake_case — this is how the API currently returns them."
+      properties:
+        transaction_id:       { type: string, format: uuid }
+        tenant_id:            { type: string, format: uuid }
+        type:                 { $ref: '#/components/schemas/TransactionType' }
+        status:               { $ref: '#/components/schemas/TransactionStatus' }
+        amount:               { type: number }
+        currency:             { type: string }
+        phone_number:         { type: string }
+        channel_id:           { type: [string, "null"], format: uuid }
+        external_reference:   { type: [string, "null"] }
+        customer_name:        { type: [string, "null"] }
+        callback_url:         { type: [string, "null"] }
+        provider:             { type: string }
+        provider_request_id:  { type: [string, "null"] }
+        provider_checkout_id: { type: [string, "null"] }
+        result_code:          { type: [string, "null"] }
+        result_desc:          { type: [string, "null"] }
+        created_at:           { type: string, format: date-time }
+        updated_at:           { type: string, format: date-time }
+
+    TransactionListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        next_cursor:
+          type: [string, "null"]
+          description: |
+            Opaque cursor for the next page. Pass as-is to the next request.
+            Never construct a cursor manually.
+
+    # -----------------------------------------------------------------------
+    # Channels
+    # -----------------------------------------------------------------------
+    PaymentWalletChannel:
+      type: object
+      properties:
+        id:            { type: string, format: uuid }
+        tenantId:      { type: string, format: uuid }
+        category:      { type: string, const: PAYMENT_WALLET }
+        type:          { $ref: '#/components/schemas/ChannelType' }
+        shortcode:     { type: string }
+        name:          { type: string }
+        accountNumber: { type: [string, "null"] }
+        isDefault:     { type: boolean }
+        createdAt:     { type: string, format: date-time }
+
+    CreateChannelRequest:
+      type: object
+      required: [type, shortcode, name]
+      properties:
+        type:          { $ref: '#/components/schemas/ChannelType' }
+        shortcode:     { type: string, maxLength: 50 }
+        name:          { type: string, maxLength: 120 }
+        accountNumber: { type: string, maxLength: 50 }
+        isDefault:     { type: boolean, default: false }
+
+    UpdateChannelRequest:
+      type: object
+      description: At least one field must be provided.
+      properties:
+        type:          { $ref: '#/components/schemas/ChannelType' }
+        shortcode:     { type: string, maxLength: 50 }
+        name:          { type: string, maxLength: 120 }
+        accountNumber: { type: string, maxLength: 50 }
+        isDefault:     { type: boolean }
+
+    # -----------------------------------------------------------------------
+    # Webhooks
+    # -----------------------------------------------------------------------
+    WebhookEventType:
+      type: string
+      enum:
+        - transaction.success
+        - transaction.failed
+        - transaction.cancelled
+        - transaction.expired
+        - transaction.updated
+
+    WebhookTransaction:
+      type: object
+      properties:
+        id:                  { type: string, format: uuid }
+        tenant_id:           { type: string, format: uuid }
+        type:                { $ref: '#/components/schemas/TransactionType' }
+        status:              { $ref: '#/components/schemas/TransactionStatus' }
+        amount:              { type: number }
+        currency:            { type: string }
+        phone_number:        { type: string }
+        external_reference:  { type: [string, "null"] }
+        provider:            { type: string }
+        provider_request_id: { type: [string, "null"] }
+        provider_checkout_id:{ type: [string, "null"] }
+        result_code:         { type: [string, "null"] }
+        result_desc:         { type: [string, "null"] }
+        mpesa_receipt:
+          type: [string, "null"]
+          description: "Only present when status=SUCCESS and type=STK"
+        created_at:          { type: string, format: date-time }
+        updated_at:          { type: string, format: date-time }
+
+    WebhookPayload:
+      type: object
+      required: [event, event_type, transaction]
+      properties:
+        event:
+          type: string
+          const: transaction.updated
+        event_type:
+          $ref: '#/components/schemas/WebhookEventType'
+        transaction:
+          $ref: '#/components/schemas/WebhookTransaction'
+
+# ---------------------------------------------------------------------------
+# Rate limiting headers (returned on every response)
+# x-ratelimit-limit: 60
+# x-ratelimit-remaining: N
+# x-ratelimit-reset: unix timestamp
+# On 429: Retry-After header is included
+#
+# Idempotency: POST /b2c/payouts and POST /wallets/service/topups support
+#   Idempotency-Key header (max 120 chars).
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Error code reference
+# ---------------------------------------------------------------------------
+# AUTH_HEADER_INVALID    401  Authorization header missing or malformed
+# INVALID_API_KEY        401  API key not found or revoked
+# TENANT_INACTIVE        401  Tenant is not ACTIVE
+# RATE_LIMIT_EXCEEDED    429  60 rpm exceeded
+# STK_TEMP_BANNED        429  Abuse protection (1 hour ban)
+# INVALID_PHONE          400  Phone format not recognized
+# CHANNEL_NOT_FOUND      400  channelId not found for tenant
+# INVALID_IDEMPOTENCY_KEY 400 Idempotency-Key exceeds 120 chars
+# INVALID_CURSOR         400  Cursor malformed or expired
+# INVALID_UUID           400  Transaction ID is not a valid UUID
+# EMPTY_UPDATE           400  PATCH body has no valid fields
+# UNSUPPORTED_CURRENCY   400  Only KES supported
+# ACCOUNT_INACTIVE       403  Tenant status is not ACTIVE
+# KYC_NOT_VERIFIED       403  Tenant KYC is not APPROVED
+# CREDENTIAL_NOT_FOUND   404  credential_id not found
+# TRANSACTION_NOT_FOUND  404  Transaction not found
+# WALLET_NOT_FOUND       404  Service wallet not found
+# INSUFFICIENT_SERVICE_BALANCE 402  Service tokens < required fee
+# CREDENTIAL_INACTIVE    409  Credential profile disabled
+# WALLET_INACTIVE        409  B2C wallet not ACTIVE
+# INSUFFICIENT_FUNDS     409  B2C wallet balance < requested amount
+# DUPLICATE_SHORTCODE    409  Shortcode already registered
+# CHANNEL_IN_USE         409  Channel linked to transactions/customers
+# PLATFORM_CREDENTIALS_NOT_CONFIGURED 500  No Daraja credentials
+
+security:
+  - BasicAuth: []
+
+paths:
+  /payments/stk:
+    post:
+      operationId: stkPush
+      summary: Initiate STK Push
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StkInitiateRequest'
+      responses:
+        "200":
+          description: STK Push initiated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/StkInitiateResponse'
+
+  /payments/stk/initiate:
+    post:
+      operationId: stkPushAlias
+      summary: Initiate STK Push (alias)
+      description: Alias for POST /payments/stk — identical behaviour.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StkInitiateRequest'
+      responses:
+        "200":
+          $ref: '#/paths/~1payments~1stk/post/responses/200'
+
+  /b2c/payouts:
+    post:
+      operationId: b2cPayout
+      summary: Send B2C payout
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema:
+            type: string
+            maxLength: 120
+          required: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/B2cPayoutRequest'
+      responses:
+        "200":
+          description: Payout queued
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/B2cPayoutResponse'
+
+  /wallets/service/balance:
+    get:
+      operationId: getServiceBalance
+      summary: Get service wallet balance
+      responses:
+        "200":
+          description: Current balance
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/ServiceWalletBalance'
+
+  /wallets/service/topups:
+    post:
+      operationId: serviceTopup
+      summary: Top up service wallet via STK Push
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          schema:
+            type: string
+            maxLength: 120
+          required: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceTopupRequest'
+      responses:
+        "200":
+          description: Topup initiated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/ServiceTopupResponse'
+
+  /transactions/{id}:
+    get:
+      operationId: getTransaction
+      summary: Get transaction by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Transaction found
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/Transaction'
+
+  /transactions:
+    get:
+      operationId: listTransactions
+      summary: List transactions with cursor pagination
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - in: query
+          name: cursor
+          schema:
+            type: string
+          description: Opaque cursor from a previous response's next_cursor
+        - in: query
+          name: status
+          schema:
+            $ref: '#/components/schemas/TransactionStatus'
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [STK, B2C]
+      responses:
+        "200":
+          description: Paginated transaction list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/TransactionListResponse'
+
+  /payment-wallet/channels:
+    post:
+      operationId: createChannel
+      summary: Create payment wallet channel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChannelRequest'
+      responses:
+        "200":
+          description: Channel created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/PaymentWalletChannel'
+
+  /payment-wallet/channels/{id}:
+    patch:
+      operationId: updateChannel
+      summary: Update payment wallet channel
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateChannelRequest'
+      responses:
+        "200":
+          description: Channel updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - properties:
+                      data:
+                        $ref: '#/components/schemas/PaymentWalletChannel'
+    delete:
+      operationId: deleteChannel
+      summary: Delete payment wallet channel
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Channel deleted

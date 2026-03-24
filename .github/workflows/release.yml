@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write       # push version commits and tags
+  pull-requests: write  # open / update the version PR
+  id-token: write       # npm provenance (OIDC attestation)
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history required so changesets can diff correctly
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # When changesets are present on main:
+      #   → opens / updates a "Version Packages" PR (bumped version + CHANGELOG)
+      # When the version PR is merged:
+      #   → runs `pnpm release` (build + changeset publish) and pushes git tag
+      - name: Create Release PR or Publish to npm
+        uses: changesets/action@v1
+        with:
+          publish: pnpm run release
+          title: "chore: version packages"
+          commit: "chore: version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Granular npm automation token scoped to @palpluss/sdk publish
+          # Create at: https://www.npmjs.com/settings/<user>/tokens
+          # Store as: Settings → Secrets → Actions → NPM_TOKEN
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
