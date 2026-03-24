@@ -91,3 +91,23 @@ jobs:
       - name: Test
         working-directory: packages/php
         run: vendor/bin/phpunit
+
+  go:
+    name: Go SDK — Vet & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+          cache-dependency-path: packages/go/go.sum
+
+      - name: Vet
+        working-directory: packages/go
+        run: go vet ./...
+
+      - name: Test
+        working-directory: packages/go
+        run: go test ./... -race
