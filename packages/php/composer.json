@@ -1,8 +1,24 @@
 {
     "name": "palpluss/sdk",
-    "description": "Official PHP SDK for the PalPluss API",
+    "description": "Official PHP SDK for the PalPluss payments API — STK Push, B2C payouts, and service wallet management",
     "type": "library",
     "license": "MIT",
+    "keywords": [
+        "palpluss",
+        "mpesa",
+        "payments",
+        "stk-push",
+        "b2c",
+        "mobile-money",
+        "kenya",
+        "sdk"
+    ],
+    "homepage": "https://palpluss.com",
+    "support": {
+        "issues": "https://github.com/Palpluss/palpluss-sdk/issues",
+        "source": "https://github.com/Palpluss/palpluss-sdk/tree/main/packages/php",
+        "docs": "https://docs.palpluss.com"
+    },
     "require": {
         "php": ">=8.1",
         "guzzlehttp/guzzle": "^7.0"

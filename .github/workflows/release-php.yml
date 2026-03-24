@@ -1,0 +1,129 @@
+name: Release PHP SDK
+
+# ── Architecture note ────────────────────────────────────────────────────────
+#
+# The monorepo is the source of truth for all PHP SDK development.
+# PHP source lives in packages/php and is developed here.
+#
+# This workflow automatically syncs packages/php into a dedicated distribution
+# repository (Palpluss/palpluss-php) using git subtree split.  That split repo
+# is Packagist-facing — it holds the package at the repository root so
+# Composer/Packagist can index it as a normal library.
+#
+# NEVER push PHP SDK changes directly to the split repo.  Always commit to the
+# monorepo and let this workflow propagate the changes.
+#
+# Packagist should be pointed at:  https://github.com/Palpluss/palpluss-php
+#
+# ── Required secret ─────────────────────────────────────────────────────────
+#
+# PHP_SDK_DEPLOY_KEY — SSH private key with write access to Palpluss/palpluss-php
+#
+# Setup (one time):
+#   1. Generate a key pair:
+#        ssh-keygen -t ed25519 -C "palpluss-php-deploy" -f palpluss_php_deploy
+#   2. Add the PUBLIC key as a deploy key on Palpluss/palpluss-php
+#        github.com/Palpluss/palpluss-php → Settings → Deploy keys
+#        Title: monorepo-split  |  Allow write access: ✓
+#   3. Add the PRIVATE key as a repo secret on the monorepo
+#        github.com/Palpluss/Palpluss-sdk → Settings → Secrets → Actions
+#        Name: PHP_SDK_DEPLOY_KEY
+#
+# ── Release versioning ───────────────────────────────────────────────────────
+#
+# Packagist resolves versions from git tags on the split repo.
+# Tag format in the monorepo:  php-v1.2.3
+# The "php-" prefix is stripped when the tag is pushed to the split repo,
+# so Packagist sees the clean semver tag:  v1.2.3
+#
+# Release process:
+#   git tag php-v1.0.0
+#   git push origin php-v1.0.0
+#   → triggers this workflow → quality → sync (branch + tag)
+#
+# ────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches: [main]
+    tags: ["php-v*"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false  # never cancel an in-flight sync
+
+# Minimal default — jobs declare only what they actually need.
+permissions:
+  contents: read
+
+jobs:
+  # ── Quality gate ─────────────────────────────────────────────────────────────
+  # The sync is blocked until tests pass.
+  quality:
+    name: Quality Gate — PHP SDK
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          tools: composer
+
+      - name: Install dependencies
+        working-directory: packages/php
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Test
+        working-directory: packages/php
+        run: vendor/bin/phpunit
+
+  # ── Subtree split and push ────────────────────────────────────────────────────
+  # Extracts packages/php into a standalone commit tree and pushes it to the
+  # distribution repo.  Full history is required for git subtree split.
+  sync:
+    name: Sync to palpluss-php distribution repo
+    runs-on: ubuntu-latest
+    needs: [quality]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history — required by git subtree split
+
+      - name: Set up SSH deploy key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PHP_SDK_DEPLOY_KEY }}
+
+      - name: Add distribution repo remote
+        run: |
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          git remote add php-dist git@github.com:Palpluss/palpluss-php.git
+
+      - name: Split subtree and push
+        run: |
+          # Extract packages/php into a standalone commit and get its SHA.
+          # git subtree split is deterministic — same PHP commits always produce
+          # the same SHA, so this is safe to push repeatedly.
+          SHA=$(git subtree split --prefix=packages/php)
+
+          # Fetch current state of the split repo so --force-with-lease has a
+          # reference point.  || true handles the brand-new empty repo case.
+          git fetch php-dist main --no-tags || true
+
+          # Push the split branch.  --force-with-lease guards against
+          # overwriting unexpected remote state (e.g. manual pushes to the
+          # split repo, which should never happen).
+          git push php-dist "${SHA}:refs/heads/main" --force-with-lease
+
+          # If this run was triggered by a php-v* tag, propagate a clean
+          # semver tag to the split repo so Packagist picks up the release.
+          # php-v1.2.3 → v1.2.3
+          if [[ "${GITHUB_REF}" == refs/tags/php-v* ]]; then
+            VERSION_TAG="${GITHUB_REF_NAME#php-}"
+            echo "Propagating tag ${VERSION_TAG} to split repo..."
+            git push php-dist "${SHA}:refs/tags/${VERSION_TAG}"
+          fi
