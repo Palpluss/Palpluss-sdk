@@ -1,5 +1,12 @@
 """PalPluss Python SDK — Official client library for the PalPluss payments API."""
 
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("palpluss")
+except PackageNotFoundError:  # pragma: no cover
+    __version__ = "unknown"
+
 from .client import AsyncPalPluss, PalPluss
 from .http.errors import PalPlussApiError, RateLimitError
 from .types.b2c import B2cPayoutResponse
@@ -12,6 +19,8 @@ from .types.webhooks import WebhookEventType, WebhookPayload, WebhookTransaction
 from .webhooks import parse_webhook_payload
 
 __all__ = [
+    # Package version
+    "__version__",
     # Clients
     "PalPluss",
     "AsyncPalPluss",

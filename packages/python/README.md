@@ -1,6 +1,10 @@
 # PalPluss Python SDK
 
-Official Python SDK for the [PalPluss](https://palpluss.com) payments API.
+[![PyPI version](https://img.shields.io/pypi/v/palpluss.svg)](https://pypi.org/project/palpluss/)
+[![Python](https://img.shields.io/pypi/pyversions/palpluss.svg)](https://pypi.org/project/palpluss/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+Official Python SDK for the [PalPluss](https://palpluss.com) payments API — accept M-Pesa STK Push payments, send B2C payouts, and manage your service wallet from Python.
 
 ## Requirements
 
@@ -206,11 +210,16 @@ ruff check palpluss
 
 ## Design
 
-This SDK follows the [PalPluss SDK Design Principles](../../docs/sdk-design-principles.md):
-
 - **Flat public API** — one obvious way to do each thing
 - **Zero magic** — no hidden side effects
-- **Typed** — full type annotations, TypedDict responses
+- **Typed** — full type annotations, TypedDict responses, ships with `py.typed`
 - **Transport isolation** — HTTP concerns in `palpluss.http`
 - **No phone normalization** — pass numbers as-is
 - **No SDK-side validation** — trust the server
+
+## Links
+
+- [PalPluss website](https://palpluss.com)
+- [API documentation](https://docs.palpluss.com)
+- [GitHub repository](https://github.com/palpluss/palpluss-sdk)
+- [Report an issue](https://github.com/palpluss/palpluss-sdk/issues)
