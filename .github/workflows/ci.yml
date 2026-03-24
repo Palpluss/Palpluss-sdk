@@ -111,3 +111,38 @@ jobs:
       - name: Test
         working-directory: packages/go
         run: go test ./... -race
+
+  # On pull requests: require a changeset when TypeScript SDK source files change.
+  # Skipped on push-to-main (version PRs have no changeset by design).
+  changeset-check:
+    name: Changeset — TypeScript SDK
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Require changeset for SDK source changes
+        run: |
+          base="${{ github.base_ref }}"
+          changed=$(git diff --name-only "origin/${base}" HEAD)
+          if echo "$changed" | grep -qE '^packages/typescript/src/'; then
+            echo "TypeScript SDK source changed — verifying changeset is present..."
+            pnpm changeset status --since="origin/${base}"
+          else
+            echo "No SDK source changes detected — changeset not required."
+          fi
