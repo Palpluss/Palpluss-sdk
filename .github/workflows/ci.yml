@@ -40,3 +40,33 @@ jobs:
 
       - name: Build
         run: pnpm --filter @palpluss/sdk build
+
+  python:
+    name: Python SDK — Lint, Typecheck & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        working-directory: packages/python
+        run: uv pip install -e ".[dev]" --system
+
+      - name: Lint
+        working-directory: packages/python
+        run: ruff check palpluss
+
+      - name: Typecheck
+        working-directory: packages/python
+        run: mypy palpluss
+
+      - name: Test
+        working-directory: packages/python
+        run: pytest
