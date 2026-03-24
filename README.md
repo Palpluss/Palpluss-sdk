@@ -18,7 +18,7 @@ All SDKs are built against a single shared API contract (`openapi/palpluss-v1.ya
 ### TypeScript / Node.js
 
 ```bash
-npm install @palpluss/sdk
+npm install @palpluss/sdk 
 ```
 
 ```typescript
