@@ -1,0 +1,45 @@
+{
+  "name": "@palpluss/paylink",
+  "version": "0.1.0",
+  "description": "Embed a Palpluss payment link in any website — modal or inline",
+  "license": "MIT",
+  "keywords": ["palpluss", "payments", "mpesa", "paylink", "embed", "iframe"],
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types":   "./dist/index.d.ts",
+      "import":  "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./react": {
+      "types":   "./dist/react.d.ts",
+      "import":  "./dist/react.mjs",
+      "require": "./dist/react.js"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "sideEffects": false,
+  "scripts": {
+    "build":     "tsup",
+    "build:cdn": "tsup --config tsup.cdn.config.ts",
+    "typecheck": "tsc --noEmit",
+    "dev":       "tsup --watch"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "react":        "^19",
+    "tsup":         "^8.0.0",
+    "typescript":   "^5.4.0"
+  },
+  "peerDependencies": {
+    "react":     ">=18",
+    "react-dom": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react":     { "optional": true },
+    "react-dom": { "optional": true }
+  },
+  "engines": { "node": ">=18" }
+}
