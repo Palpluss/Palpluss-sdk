@@ -10,26 +10,40 @@ function ensureStyles() {
   sharedStyles = document.createElement('style')
   sharedStyles.setAttribute('data-palpluss-styles', '')
   sharedStyles.textContent = `
+    dialog[data-palpluss] {
+      padding: 0;
+      border: none;
+      border-radius: 12px;
+      width: calc(100% - 32px);
+      max-width: 860px;
+      max-height: calc(100vh - 32px);
+      max-height: calc(100dvh - 32px);
+      overflow-y: auto;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.20);
+    }
+    dialog[data-palpluss]::backdrop {
+      background: rgba(0,0,0,0.55);
+    }
     @media (max-width: 639px) {
-      [data-palpluss-overlay] {
-        padding: 0 !important;
-        align-items: stretch !important;
+      dialog[data-palpluss] {
+        width: 100%;
+        max-width: 100%;
+        height: 100vh;
+        height: 100dvh;
+        max-height: 100vh;
+        max-height: 100dvh;
+        border-radius: 0;
+        margin: 0;
+        inset: 0;
       }
-      [data-palpluss-card] {
-        max-width: 100% !important;
-        border-radius: 0 !important;
-        box-shadow: none !important;
-        margin: 0 !important;
-        min-height: 100vh !important;
-        min-height: 100dvh !important;
-      }
-      [data-palpluss-close] {
+      dialog[data-palpluss] [data-palpluss-close] {
         background: rgba(255,255,255,0.92) !important;
         border-radius: 50% !important;
         width: 32px !important;
         height: 32px !important;
-        top: 14px !important;
-        right: 14px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
       }
     }
   `
@@ -47,35 +61,8 @@ export function openModal(
 
   // ── Build DOM ─────────────────────────────────────────────────────────────
 
-  const overlay = document.createElement('div')
-  overlay.setAttribute('data-palpluss-overlay', '')
-  Object.assign(overlay.style, {
-    position:                 'fixed',
-    inset:                    '0',
-    backgroundColor:          'rgba(0,0,0,0.55)',
-    display:                  'flex',
-    // no alignItems — defaults to stretch; card uses margin:auto to center
-    // when it fits, and the overlay scrolls when the card is taller
-    overflowY:                'auto',
-    WebkitOverflowScrolling:  'touch',  // momentum scroll on iOS
-    zIndex:                   '2147483647',
-    padding:                  '16px',
-    boxSizing:                'border-box',
-  })
-
-  const card = document.createElement('div')
-  card.setAttribute('data-palpluss-card', '')
-  Object.assign(card.style, {
-    position:     'relative',
-    width:        '100%',
-    maxWidth:     '860px',
-    background:   '#fff',
-    borderRadius: '12px',
-    overflow:     'hidden',
-    boxShadow:    '0 24px 64px rgba(0,0,0,0.20)',
-    margin:       'auto',   // centers in overlay when card < viewport height;
-    flexShrink:   '0',      // prevents flex from squishing the card
-  })
+  const dialog = document.createElement('dialog')
+  dialog.setAttribute('data-palpluss', '')
 
   const closeBtn = document.createElement('button')
   closeBtn.textContent = '✕'
@@ -99,31 +86,29 @@ export function openModal(
   iframe.src = `${BASE_URL}/${encodeURIComponent(paylinkId)}?embed=1`
   iframe.allow = 'payment'
   Object.assign(iframe.style, {
-    display:   'block',
-    width:     '100%',
-    border:    'none',
-    minHeight: '560px',
+    display:    'block',
+    width:      '100%',
+    border:     'none',
+    minHeight:  '560px',
     transition: 'height 0.2s ease',
   })
 
-  card.appendChild(closeBtn)
-  card.appendChild(iframe)
-  overlay.appendChild(card)
-  document.body.appendChild(overlay)
+  dialog.appendChild(closeBtn)
+  dialog.appendChild(iframe)
+  document.body.appendChild(dialog)
 
-  // Scroll lock — only applied on desktop; on mobile the overlay itself scrolls.
-  const prevOverflow = document.body.style.overflow
-  if (window.innerWidth >= 640) {
-    document.body.style.overflow = 'hidden'
-  }
+  // showModal() puts the dialog in the browser top layer:
+  // - body scroll is locked automatically
+  // - no z-index needed
+  // - Escape fires a native 'cancel' event
+  dialog.showModal()
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
 
   function cleanup() {
-    document.body.removeChild(overlay)
-    document.body.style.overflow = prevOverflow
+    dialog.close()
+    document.body.removeChild(dialog)
     window.removeEventListener('message', onMessage)
-    document.removeEventListener('keydown', onKeydown)
   }
 
   // ── postMessage handler ───────────────────────────────────────────────────
@@ -155,17 +140,27 @@ export function openModal(
     reject(new Error('Payment modal closed by user'))
   }
 
-  function onKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') close()
-  }
+  // Escape key — browser fires 'cancel' on the dialog natively
+  dialog.addEventListener('cancel', (e) => {
+    e.preventDefault() // let our close() handle teardown
+    close()
+  })
 
   closeBtn.addEventListener('click', close)
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) close()
+
+  // Backdrop click — clicks on ::backdrop land on the dialog element itself,
+  // outside its content box. Compare pointer position against dialog bounds.
+  dialog.addEventListener('click', (e) => {
+    const rect = dialog.getBoundingClientRect()
+    const outsideDialog =
+      e.clientX < rect.left  ||
+      e.clientX > rect.right ||
+      e.clientY < rect.top   ||
+      e.clientY > rect.bottom
+    if (outsideDialog) close()
   })
 
   window.addEventListener('message', onMessage)
-  document.addEventListener('keydown', onKeydown)
 
   return cleanup
 }
