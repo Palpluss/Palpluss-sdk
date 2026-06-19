@@ -20,6 +20,7 @@ function ensureStyles() {
       max-height: calc(100dvh - 32px);
       overflow-y: auto;
       box-shadow: 0 24px 64px rgba(0,0,0,0.20);
+      margin: auto;
     }
     dialog[data-palpluss]::backdrop {
       background: rgba(0,0,0,0.55);

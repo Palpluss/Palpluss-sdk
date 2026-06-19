@@ -1,6 +1,6 @@
 {
   "name": "@palpluss/paylink",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Embed a Palpluss payment link in any website — modal or inline",
   "license": "MIT",
   "keywords": ["palpluss", "payments", "mpesa", "paylink", "embed", "iframe"],
