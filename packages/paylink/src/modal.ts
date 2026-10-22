@@ -1,6 +1,5 @@
 import type { IframeEvent, PaymentResult, PayOptions } from './types.js'
-
-const BASE_URL = 'https://link.palpluss.com'
+import { buildPaylinkUrl } from './url.js'
 
 // Injected once, shared across all modal instances on the page.
 let sharedStyles: HTMLStyleElement | null = null
@@ -58,6 +57,9 @@ export function openModal(
   reject:  (reason?: unknown) => void,
 ): () => void {
 
+  // Validate before touching the DOM — a bad pre-fill throws a TypeError.
+  const src = buildPaylinkUrl(paylinkId, options)
+
   ensureStyles()
 
   // ── Build DOM ─────────────────────────────────────────────────────────────
@@ -84,7 +86,7 @@ export function openModal(
   })
 
   const iframe = document.createElement('iframe')
-  iframe.src = `${BASE_URL}/${encodeURIComponent(paylinkId)}?embed=1`
+  iframe.src = src
   iframe.allow = 'payment'
   Object.assign(iframe.style, {
     display:    'block',

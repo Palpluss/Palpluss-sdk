@@ -160,6 +160,12 @@ export default defineConfig({
 
 ## 6. Source Files
 
+> **v1.4.0 — pre-fill.** `pay()` options and `<PalplussPayment>` props gained
+> `amount`, `phone`, `customerName` and `lockPrefill`. The iframe URL is now built
+> by `src/url.ts` (§6g) in both `modal.ts` and `react.tsx`, replacing the inline
+> `` `${BASE_URL}/${id}?embed=1` ``. The listings for `modal.ts` / `react.tsx` below
+> show the original structure — see the source for the exact current code.
+
 ### 6a. `src/types.ts`
 
 All shared types in one place.
@@ -171,7 +177,15 @@ export type PaymentResult = {
   phone:  string
 }
 
-export type PayOptions = {
+// Values pre-filled on the payment form. Merchant-fixed values on the paylink win.
+export type PaylinkPrefill = {
+  amount?:       number   // KES, ≥ 1
+  phone?:        string
+  customerName?: string   // max 120 characters
+  lockPrefill?:  boolean  // make pre-filled fields read-only
+}
+
+export type PayOptions = PaylinkPrefill & {
   onSuccess?: (data: PaymentResult) => void
   onClose?:   () => void
 }
@@ -398,9 +412,10 @@ export function PalplussPayment({ id, onSuccess, className }: PalplussPaymentPro
 The main entry point. Only exports the core — no React here.
 
 ```ts
-export { pay }           from './pay.js'
-export { openModal }     from './modal.js'
-export type { PaymentResult, PayOptions, IframeEvent } from './types.js'
+export { pay }             from './pay.js'
+export { openModal }       from './modal.js'
+export { buildPaylinkUrl, PAYLINK_BASE_URL } from './url.js'
+export type { PaymentResult, PayOptions, PaylinkPrefill, IframeEvent } from './types.js'
 ```
 
 ---
@@ -410,12 +425,36 @@ export type { PaymentResult, PayOptions, IframeEvent } from './types.js'
 Entry point for the CDN IIFE build. Exposes everything on `window.Palpluss`.
 
 ```ts
-export { pay } from './pay.js'
+export { pay }             from './pay.js'
+export { buildPaylinkUrl } from './url.js'
 
 // Usage via CDN:
 // <script src="https://cdn.palpluss.com/paylink.min.js"></script>
-// <script>Palpluss.pay('abc-123')</script>
+// <script>Palpluss.pay('abc-123', { amount: 1500 })</script>
 ```
+
+---
+
+### 6g. `src/url.ts` (v1.4.0)
+
+Builds the hosted payment page URL with validated pre-fill. Used by `modal.ts`,
+`react.tsx`, and exported for raw-iframe / shareable-link use.
+
+```ts
+buildPaylinkUrl('abc-123', { amount: 1500, phone: '0712345678', lockPrefill: true })
+// → https://link.palpluss.com/abc-123?embed=1&amount=1500&phone=0712345678&lock=1
+```
+
+| Query param | Source option | Rule |
+|---|---|---|
+| `embed=1` | (default) | omitted with `{ embed: false }` |
+| `amount` | `amount` | finite number ≥ 1, rounded to 2 dp — else `TypeError` |
+| `phone` | `phone` | non-empty string — else `TypeError` |
+| `customer_name` | `customerName` | trimmed, ≤ 120 chars — else `TypeError` |
+| `lock=1` | `lockPrefill: true` | |
+
+The payment page (`link.palpluss.com/[id]`) reads these params and pre-fills only
+the fields the merchant left open on the paylink.
 
 ---
 
