@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
-import type { IframeEvent, PaylinkPrefill, PaymentResult } from './types.js'
+import type { PaylinkPrefill, PaymentResult } from './types.js'
 import { buildPaylinkUrl } from './url.js'
+import { readIframeMessage } from './messages.js'
 
 interface PalplussPaymentProps extends PaylinkPrefill {
   id:         string
@@ -26,15 +27,17 @@ export function PalplussPayment({
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => {
-    function handleMessage(e: MessageEvent<IframeEvent>) {
-      if (!e.data || typeof e.data !== 'object') return
+    function handleMessage(e: MessageEvent) {
+      // Only trust well-formed events from our own iframe on the Palpluss origin.
+      const msg = readIframeMessage(e, iframeRef.current)
+      if (!msg) return
 
-      if (e.data.type === 'RESIZE' && iframeRef.current) {
-        iframeRef.current.style.height = `${e.data.height}px`
+      if (msg.type === 'RESIZE' && iframeRef.current) {
+        iframeRef.current.style.height = `${msg.height}px`
       }
 
-      if (e.data.type === 'PAYMENT_SUCCESS') {
-        onSuccess?.({ txId: e.data.txId, amount: e.data.amount, phone: e.data.phone })
+      if (msg.type === 'PAYMENT_SUCCESS') {
+        onSuccess?.({ txId: msg.txId, amount: msg.amount, phone: msg.phone })
       }
     }
 

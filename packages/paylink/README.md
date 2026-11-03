@@ -52,6 +52,8 @@ cleanup() — removes overlay, resolves Promise
 
 The iframe origin is `https://link.palpluss.com` — your page never handles raw payment credentials.
 
+From v1.4.1 the SDK only accepts messages whose origin is `https://link.palpluss.com` **and** whose source is its own iframe, so other frames or scripts on your page cannot fake a `PAYMENT_SUCCESS`. Still confirm payments on your server (webhook or `GET /v1/transactions/{id}`) before delivering goods.
+
 ---
 
 ## Installation

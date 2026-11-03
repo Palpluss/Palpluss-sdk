@@ -1,5 +1,6 @@
-import type { IframeEvent, PaymentResult, PayOptions } from './types.js'
+import type { PaymentResult, PayOptions } from './types.js'
 import { buildPaylinkUrl } from './url.js'
+import { readIframeMessage } from './messages.js'
 
 // Injected once, shared across all modal instances on the page.
 let sharedStyles: HTMLStyleElement | null = null
@@ -116,18 +117,20 @@ export function openModal(
 
   // ── postMessage handler ───────────────────────────────────────────────────
 
-  function onMessage(e: MessageEvent<IframeEvent>) {
-    if (!e.data || typeof e.data !== 'object') return
+  function onMessage(e: MessageEvent) {
+    // Only trust well-formed events from our own iframe on the Palpluss origin.
+    const msg = readIframeMessage(e, iframe)
+    if (!msg) return
 
-    if (e.data.type === 'RESIZE') {
-      iframe.style.height = `${e.data.height}px`
+    if (msg.type === 'RESIZE') {
+      iframe.style.height = `${msg.height}px`
     }
 
-    if (e.data.type === 'PAYMENT_SUCCESS') {
+    if (msg.type === 'PAYMENT_SUCCESS') {
       const result: PaymentResult = {
-        txId:   e.data.txId,
-        amount: e.data.amount,
-        phone:  e.data.phone,
+        txId:   msg.txId,
+        amount: msg.amount,
+        phone:  msg.phone,
       }
       options.onSuccess?.(result)
       cleanup()
