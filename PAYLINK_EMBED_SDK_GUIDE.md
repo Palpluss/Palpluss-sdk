@@ -429,7 +429,7 @@ export { pay }             from './pay.js'
 export { buildPaylinkUrl } from './url.js'
 
 // Usage via CDN:
-// <script src="https://cdn.palpluss.com/paylink.min.js"></script>
+// <script src="https://cdn.jsdelivr.net/npm/@palpluss/paylink@1/dist/cdn/palpluss-paylink.global.js"></script>
 // <script>Palpluss.pay('abc-123', { amount: 1500 })</script>
 ```
 
@@ -542,7 +542,7 @@ export function CheckoutPage() {
 ### CDN script tag (no npm, no build step)
 
 ```html
-<script src="https://cdn.palpluss.com/paylink.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@palpluss/paylink@1/dist/cdn/palpluss-paylink.global.js"></script>
 <button onclick="Palpluss.pay('abc-123')">Pay Now</button>
 ```
 

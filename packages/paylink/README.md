@@ -320,7 +320,7 @@ export function CheckoutPage() {
 No build step required. Drop this into any HTML page:
 
 ```html
-<script src="https://cdn.palpluss.com/paylink.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@palpluss/paylink@1/dist/cdn/palpluss-paylink.global.js"></script>
 
 <button onclick="Palpluss.pay('abc-123').then(r => alert('Paid! Ref: ' + r.txId))">
   Pay with M-PESA
