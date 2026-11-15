@@ -16,7 +16,7 @@ use PalPluss\Modules\WalletsModule;
  *
  * @example
  * ```php
- * $client = new PalPluss(apiKey: 'pk_live_...');
+ * $client = new PalPluss(apiKey: 'your_api_key');
  * $result = $client->stkPush(amount: 500, phone: '254712345678');
  * echo $result['transactionId'];
  * ```

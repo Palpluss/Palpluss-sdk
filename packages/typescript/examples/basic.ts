@@ -2,7 +2,7 @@ import { PalPluss, PalPlussApiError, RateLimitError } from '../src';
 
 async function main() {
   const palpluss = new PalPluss({
-    apiKey: 'pk_test_your_api_key',
+    apiKey: 'your_api_key',
     // timeout: 30_000,
     // autoRetryOnRateLimit: true,
     // maxRetries: 3,

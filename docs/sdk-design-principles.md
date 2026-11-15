@@ -23,7 +23,7 @@ One obvious way to do each thing. No unnecessary nesting.
 The developer only needs to provide an API key:
 
 ```typescript
-const client = new PalPluss({ apiKey: "pk_live_..." });
+const client = new PalPluss({ apiKey: "your_api_key" });
 ```
 
 Advanced options (`timeout`, `autoRetryOnRateLimit`, `maxRetries`) are available but optional. The base URL is not exposed in the public API.

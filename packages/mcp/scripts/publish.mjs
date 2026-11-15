@@ -21,7 +21,12 @@ try {
   run('pnpm build');
   delete pkg.private;
   writeFileSync(path, `${JSON.stringify(pkg, null, 2)}\n`);
-  run(`npm publish --access public${process.argv.includes('--dry-run') ? ' --dry-run' : ''}`);
+  // The repo's .npmrc sets provenance=true for the GitHub Actions release.
+  // Provenance needs a CI identity (OIDC), so a manual publish turns it off.
+  // Accounts with 2FA need the authenticator code: pass --otp=123456.
+  const otp = process.argv.find((a) => a.startsWith('--otp='));
+  const dry = process.argv.includes('--dry-run') ? ' --dry-run' : '';
+  run(`npm publish --access public --provenance=false${otp ? ` ${otp}` : ''}${dry}`);
   console.log(`\nPublished @palpluss/mcp@${pkg.version}`);
 } finally {
   writeFileSync(path, original);

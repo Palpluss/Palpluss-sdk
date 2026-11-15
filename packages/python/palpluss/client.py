@@ -31,7 +31,7 @@ class PalPluss:
 
         from palpluss import PalPluss
 
-        client = PalPluss(api_key="pk_live_...")
+        client = PalPluss(api_key="your_api_key")
         result = client.stk_push(amount=500, phone="254712345678")
         print(result["transactionId"])
     """
@@ -225,7 +225,7 @@ class AsyncPalPluss:
 
         from palpluss import AsyncPalPluss
 
-        async with AsyncPalPluss(api_key="pk_live_...") as client:
+        async with AsyncPalPluss(api_key="your_api_key") as client:
             result = await client.stk_push(amount=500, phone="254712345678")
             print(result["transactionId"])
     """

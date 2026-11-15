@@ -55,7 +55,7 @@ The API key can be passed directly or read from the `PALPLUSS_API_KEY` environme
 
 | Parameter | Default | Description |
 |---|---|---|
-| `apiKey` | `PALPLUSS_API_KEY` env var | Your PalPluss API key (`pk_live_...` or `pk_test_...`) |
+| `apiKey` | `PALPLUSS_API_KEY` env var | Your PalPluss API key (from console.palpluss.com → API Keys) |
 | `timeout` | `30s` | Request timeout |
 | `autoRetryOnRateLimit` | `true` | Automatically retry on HTTP 429 |
 | `maxRetries` | `3` | Maximum retry attempts |
@@ -67,14 +67,14 @@ Set `PALPLUSS_BASE_URL` to point to a different environment (e.g. sandbox).
 import { PalPluss } from '@palpluss/sdk';
 
 // Explicit key
-const client = new PalPluss({ apiKey: 'pk_live_...' });
+const client = new PalPluss({ apiKey: 'your_api_key' });
 
 // From environment variable
 const client = new PalPluss();
 
 // With all options
 const client = new PalPluss({
-  apiKey: 'pk_live_...',
+  apiKey: 'your_api_key',
   timeout: 60_000,              // milliseconds
   autoRetryOnRateLimit: true,
   maxRetries: 5,
@@ -86,21 +86,21 @@ const client = new PalPluss({
 from palpluss import PalPluss, AsyncPalPluss
 
 # Explicit key
-client = PalPluss(api_key="pk_live_...")
+client = PalPluss(api_key="your_api_key")
 
 # From environment variable
 client = PalPluss()
 
 # With all options
 client = PalPluss(
-    api_key="pk_live_...",
+    api_key="your_api_key",
     timeout=60.0,               # seconds
     auto_retry_on_rate_limit=True,
     max_retries=5,
 )
 
 # Async variant — same options
-async_client = AsyncPalPluss(api_key="pk_live_...")
+async_client = AsyncPalPluss(api_key="your_api_key")
 ```
 
 **PHP**
@@ -108,14 +108,14 @@ async_client = AsyncPalPluss(api_key="pk_live_...")
 use PalPluss\PalPluss;
 
 // Explicit key
-$client = new PalPluss(apiKey: 'pk_live_...');
+$client = new PalPluss(apiKey: 'your_api_key');
 
 // From environment variable
 $client = new PalPluss();
 
 // With all options
 $client = new PalPluss(
-    apiKey: 'pk_live_...',
+    apiKey: 'your_api_key',
     timeout: 60.0,
     autoRetryOnRateLimit: true,
     maxRetries: 5,
@@ -127,14 +127,14 @@ $client = new PalPluss(
 import palpluss "github.com/palpluss/palpluss-go"
 
 // Explicit key
-client, err := palpluss.New("pk_live_...")
+client, err := palpluss.New("your_api_key")
 
 // From environment variable (pass empty string)
 client, err := palpluss.New("")
 
 // With all options
 client, err := palpluss.New(
-    "pk_live_...",
+    "your_api_key",
     palpluss.WithTimeout(60 * time.Second),
     palpluss.WithAutoRetryOnRateLimit(true),
     palpluss.WithMaxRetries(5),
@@ -153,7 +153,7 @@ Close the underlying HTTP connection pool when the client is no longer needed.
 // Using a context manager pattern (recommended for scripts)
 // TypeScript client does not require explicit close for server use.
 // For short-lived scripts:
-const client = new PalPluss({ apiKey: 'pk_live_...' });
+const client = new PalPluss({ apiKey: 'your_api_key' });
 try {
   // ... use client
 } finally {
@@ -164,15 +164,15 @@ try {
 **Python**
 ```python
 # Context manager (recommended)
-with PalPluss(api_key="pk_live_...") as client:
+with PalPluss(api_key="your_api_key") as client:
     result = client.stk_push(amount=500, phone="254712345678")
 
 # Async context manager
-async with AsyncPalPluss(api_key="pk_live_...") as client:
+async with AsyncPalPluss(api_key="your_api_key") as client:
     result = await client.stk_push(amount=500, phone="254712345678")
 
 # Manual close
-client = PalPluss(api_key="pk_live_...")
+client = PalPluss(api_key="your_api_key")
 try:
     result = client.stk_push(amount=500, phone="254712345678")
 finally:
@@ -240,7 +240,7 @@ print(result["status"])         # "PENDING"
 
 **Python (async)**
 ```python
-async with AsyncPalPluss(api_key="pk_live_...") as client:
+async with AsyncPalPluss(api_key="your_api_key") as client:
     result = await client.stk_push(
         amount=500,
         phone="254712345678",
@@ -1189,7 +1189,7 @@ All SDKs raise / throw a typed error when the API returns a non-2xx response.
 ```typescript
 import { PalPluss, PalPlussApiError, RateLimitError } from '@palpluss/sdk';
 
-const client = new PalPluss({ apiKey: 'pk_live_...' });
+const client = new PalPluss({ apiKey: 'your_api_key' });
 
 try {
   const result = await client.stkPush({ amount: 500, phone: '254712345678' });
@@ -1210,7 +1210,7 @@ try {
 ```python
 from palpluss import PalPluss, PalPlussApiError, RateLimitError
 
-client = PalPluss(api_key="pk_live_...")
+client = PalPluss(api_key="your_api_key")
 
 try:
     result = client.stk_push(amount=500, phone="254712345678")
@@ -1294,24 +1294,24 @@ By default all clients automatically retry on HTTP 429 using the `Retry-After` r
 ```typescript
 // TypeScript — disable auto-retry
 const client = new PalPluss({
-  apiKey: 'pk_live_...',
+  apiKey: 'your_api_key',
   autoRetryOnRateLimit: false,
 });
 ```
 
 ```python
 # Python — disable auto-retry
-client = PalPluss(api_key="pk_live_...", auto_retry_on_rate_limit=False)
+client = PalPluss(api_key="your_api_key", auto_retry_on_rate_limit=False)
 ```
 
 ```php
 // PHP — disable auto-retry
-$client = new PalPluss(apiKey: 'pk_live_...', autoRetryOnRateLimit: false);
+$client = new PalPluss(apiKey: 'your_api_key', autoRetryOnRateLimit: false);
 ```
 
 ```go
 // Go — disable auto-retry
-client, _ := palpluss.New("pk_live_...", palpluss.WithAutoRetryOnRateLimit(false))
+client, _ := palpluss.New("your_api_key", palpluss.WithAutoRetryOnRateLimit(false))
 ```
 
 ### Manual retry with backoff
@@ -1322,7 +1322,7 @@ When auto-retry is disabled or exhausted, handle `RateLimitError` manually:
 import time
 from palpluss import PalPluss, RateLimitError
 
-client = PalPluss(api_key="pk_live_...", auto_retry_on_rate_limit=False)
+client = PalPluss(api_key="your_api_key", auto_retry_on_rate_limit=False)
 
 for attempt in range(4):
     try:

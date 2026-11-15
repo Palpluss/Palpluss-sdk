@@ -27,7 +27,7 @@ npm install @palpluss/sdk
 ```typescript
 import { PalPluss } from '@palpluss/sdk';
 
-const client = new PalPluss({ apiKey: 'pk_live_...' });
+const client = new PalPluss({ apiKey: 'your_api_key' });
 
 const result = await client.stkPush({
   amount: 500,
@@ -48,7 +48,7 @@ pip install palpluss
 ```python
 from palpluss import PalPluss
 
-client = PalPluss(api_key="pk_live_...")
+client = PalPluss(api_key="your_api_key")
 
 result = client.stk_push(amount=500, phone="254712345678")
 print(result["transactionId"])  # "tx_..."
@@ -60,7 +60,7 @@ Async support is included out of the box:
 ```python
 from palpluss import AsyncPalPluss
 
-async with AsyncPalPluss(api_key="pk_live_...") as client:
+async with AsyncPalPluss(api_key="your_api_key") as client:
     result = await client.stk_push(amount=500, phone="254712345678")
 ```
 
@@ -73,7 +73,7 @@ composer require palpluss/sdk
 ```php
 use PalPluss\PalPluss;
 
-$client = new PalPluss(apiKey: 'pk_live_...');
+$client = new PalPluss(apiKey: 'your_api_key');
 
 $result = $client->stkPush(amount: 500, phone: '254712345678');
 echo $result['transactionId']; // "tx_..."
@@ -89,7 +89,7 @@ go get github.com/palpluss/palpluss-go
 ```go
 import palpluss "github.com/palpluss/palpluss-go"
 
-client, err := palpluss.New("pk_live_...")
+client, err := palpluss.New("your_api_key")
 if err != nil {
     log.Fatal(err)
 }

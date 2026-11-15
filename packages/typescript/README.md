@@ -17,7 +17,7 @@ yarn add @palpluss/sdk
 ```typescript
 import { PalPluss } from '@palpluss/sdk';
 
-const palpluss = new PalPluss({ apiKey: 'pk_live_your_api_key' });
+const palpluss = new PalPluss({ apiKey: 'your_api_key' });
 
 const stk = await palpluss.stkPush({
   amount: 500,
@@ -33,7 +33,7 @@ console.log(stk.status);        // PENDING
 
 ```typescript
 const palpluss = new PalPluss({
-  apiKey: 'pk_live_your_api_key', // or set PALPLUSS_API_KEY env var
+  apiKey: 'your_api_key', // or set PALPLUSS_API_KEY env var
 });
 ```
 

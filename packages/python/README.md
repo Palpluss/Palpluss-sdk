@@ -22,7 +22,7 @@ pip install palpluss
 ```python
 from palpluss import PalPluss
 
-client = PalPluss(api_key="pk_live_your_api_key")
+client = PalPluss(api_key="your_api_key")
 
 # STK Push (Lipa na M-Pesa)
 result = client.stk_push(
@@ -41,7 +41,7 @@ import asyncio
 from palpluss import AsyncPalPluss
 
 async def main():
-    async with AsyncPalPluss(api_key="pk_live_your_api_key") as client:
+    async with AsyncPalPluss(api_key="your_api_key") as client:
         result = await client.stk_push(amount=500, phone="254712345678")
         print(result["transactionId"])
 
@@ -155,7 +155,7 @@ def webhook_handler(request_body: str):
 ```python
 from palpluss import PalPluss, PalPlussApiError, RateLimitError
 
-client = PalPluss(api_key="pk_live_...")
+client = PalPluss(api_key="your_api_key")
 
 try:
     result = client.stk_push(amount=500, phone="bad-phone")
@@ -182,11 +182,11 @@ except PalPlussApiError as e:
 
 ```python
 # Sync
-with PalPluss(api_key="pk_live_...") as client:
+with PalPluss(api_key="your_api_key") as client:
     result = client.stk_push(amount=500, phone="254712345678")
 
 # Async
-async with AsyncPalPluss(api_key="pk_live_...") as client:
+async with AsyncPalPluss(api_key="your_api_key") as client:
     result = await client.stk_push(amount=500, phone="254712345678")
 ```
 

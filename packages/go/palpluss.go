@@ -2,7 +2,7 @@
 //
 // Basic usage:
 //
-//	client, err := palpluss.New("pk_live_...")
+//	client, err := palpluss.New("your_api_key")
 //	if err != nil {
 //	    log.Fatal(err)
 //	}

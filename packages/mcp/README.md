@@ -147,7 +147,7 @@ PALPLUSS_API_KEY=your_api_key node packages/mcp/dist/cli.js
 The package is marked `"private": true`, so the SDK's changeset release can't publish it by accident. To release it manually:
 
 1. Bump `version` in `package.json` and `USER_AGENT` in `src/api/client.ts`; the script checks that they match.
-2. `npm login` (once), then `pnpm --filter @palpluss/mcp release:manual`. This runs the tests and the build, lifts the private flag for the publish only, then puts it back. Add `-- --dry-run` to try it without publishing.
+2. `npm login` (once), then `pnpm --filter @palpluss/mcp release:manual -- --otp=<code from your authenticator>`. This runs the tests and the build, lifts the private flag for the publish only, then puts it back. It publishes without provenance, which only works from CI. Use `-- --dry-run` to try it without publishing.
 
 ## License
 

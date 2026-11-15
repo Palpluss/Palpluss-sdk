@@ -11,7 +11,7 @@ npm install @palpluss/sdk
 Add to `.env.local`:
 
 ```
-PALPLUSS_API_KEY=pk_live_your_key
+PALPLUSS_API_KEY=your_api_key
 ```
 
 ## Route handlers

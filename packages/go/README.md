@@ -26,7 +26,7 @@ import (
 )
 
 func main() {
-    client, err := palpluss.New("pk_live_...")
+    client, err := palpluss.New("your_api_key")
     if err != nil {
         log.Fatal(err)
     }
@@ -52,7 +52,7 @@ client, err := palpluss.New("") // reads PALPLUSS_API_KEY from env
 
 ```go
 client, err := palpluss.New(
-    "pk_live_...",
+    "your_api_key",
     palpluss.WithTimeout(30 * time.Second),      // default: 30s
     palpluss.WithAutoRetryOnRateLimit(true),      // default: true
     palpluss.WithMaxRetries(3),                   // default: 3

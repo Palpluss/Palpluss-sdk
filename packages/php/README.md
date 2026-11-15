@@ -18,7 +18,7 @@ composer require palpluss/sdk
 ```php
 use PalPluss\PalPluss;
 
-$client = new PalPluss(apiKey: 'pk_live_...');
+$client = new PalPluss(apiKey: 'your_api_key');
 
 $result = $client->stkPush(amount: 500, phone: '254712345678');
 echo $result['transactionId'];
@@ -34,7 +34,7 @@ $client = new PalPluss(); // reads PALPLUSS_API_KEY from env
 
 ```php
 $client = new PalPluss(
-    apiKey: 'pk_live_...',
+    apiKey: 'your_api_key',
     timeout: 30.0,               // request timeout in seconds (default: 30)
     autoRetryOnRateLimit: true,  // auto-retry on HTTP 429 (default: true)
     maxRetries: 3,               // max retry attempts (default: 3)

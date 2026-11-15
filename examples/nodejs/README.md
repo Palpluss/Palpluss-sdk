@@ -63,5 +63,5 @@ server.listen(3000, () => console.log('Listening on :3000'));
 ## Environment
 
 ```bash
-PALPLUSS_API_KEY=pk_live_your_key
+PALPLUSS_API_KEY=your_api_key
 ```

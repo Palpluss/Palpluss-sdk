@@ -2,7 +2,7 @@
   "name": "@palpluss/mcp",
   "version": "0.1.0",
   "private": true,
-  "description": "PalPluss MCP server \u2014 let AI coding tools check balances, manage payment channels and wallets, collect with M-Pesa STK Push and send B2C payouts, with human approval on anything that moves money.",
+  "description": "PalPluss MCP server — let AI coding tools check balances, manage payment channels and wallets, collect with M-Pesa STK Push and send B2C payouts, with human approval on anything that moves money.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -13,7 +13,7 @@
     }
   },
   "bin": {
-    "palpluss-mcp": "./dist/cli.js"
+    "palpluss-mcp": "dist/cli.js"
   },
   "files": [
     "dist",
@@ -44,7 +44,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/palpluss/palpluss-sdk.git",
+    "url": "git+https://github.com/palpluss/palpluss-sdk.git",
     "directory": "packages/mcp"
   },
   "publishConfig": {
