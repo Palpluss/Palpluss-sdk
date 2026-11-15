@@ -12,7 +12,7 @@ All SDKs are built against a single shared API contract (`openapi/palpluss-v1.ya
 | Python | [`palpluss`](packages/python) | ✅ Available | [README](packages/python/README.md) |
 | PHP | [`palpluss/sdk`](packages/php) | ✅ Available | [README](packages/php/README.md) |
 | Go | [`github.com/palpluss/palpluss-go`](packages/go) | ✅ Available | [README](packages/go/README.md) |
-| MCP server (AI tools) | [`@palpluss/mcp`](packages/mcp) | 🧪 Ready, not yet on npm | [README](packages/mcp/README.md) |
+| MCP server (AI tools) | [`@palpluss/mcp`](packages/mcp) | ✅ Available | [README](packages/mcp/README.md) |
 
 For full usage examples, parameters, and response shapes for every SDK, see [docs/usage.md](docs/usage.md).
 

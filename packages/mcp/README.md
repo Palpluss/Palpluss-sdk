@@ -43,8 +43,6 @@ claude mcp add palpluss -e PALPLUSS_API_KEY=your_api_key -- npx -y @palpluss/mcp
 }
 ```
 
-> **Before it's on npm:** build it (`pnpm --filter @palpluss/mcp build`) and use `node /path/to/palpluss-sdk/packages/mcp/dist/cli.js` in place of `npx -y @palpluss/mcp`.
-
 Then ask your assistant things like *"What's my PalPluss service wallet balance?"*, *"Show my latest failed STK payments"*, or *"Add my KCB Paybill 522522, account 1188990011, as a payment channel"*.
 
 ## Tools
