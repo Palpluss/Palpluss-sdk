@@ -14,7 +14,7 @@ export const SERVER_VERSION = USER_AGENT.split('/')[1];
 export interface CreateServerOptions extends Partial<PalplussMcpConfig> {
   apiKey: string;
   /**
-   * Custom approval step. An embedding app (e.g. Konaar) can show its own
+   * Custom approval step. An embedding app can show its own
    * confirm dialog here instead of relying on MCP elicitation.
    */
   approver?: Approver;

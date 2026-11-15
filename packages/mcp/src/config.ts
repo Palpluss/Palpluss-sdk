@@ -13,7 +13,7 @@ export const DEFAULT_TOOLSETS: Toolset[] = ['read', 'wallets', 'collect'];
  * How money-moving and channel-changing tools get a human's yes:
  * - `elicit` (default): the MCP client shows the person an approval prompt;
  *   the AI never sees or answers it. Clients without that support are refused.
- * - `none`: no prompt. Only for automated tests against a sandbox account.
+ * - `none`: no prompt. Only for automated tests against a fake or local API, never a live key.
  */
 export type ApprovalMode = 'elicit' | 'none';
 

@@ -124,3 +124,20 @@ describe('api client', () => {
     await expect(client.listChannels()).rejects.toMatchObject({ code: 'TIMEOUT' });
   });
 });
+
+describe('api error codes', () => {
+  it('prefers the specific code in details.code over HTTP_<status>', async () => {
+    const api = fakeApi(() => ({
+      status: 403,
+      body: { success: false, error: { code: 'HTTP_403', message: 'KYC verification is required', details: { code: 'KYC_NOT_VERIFIED' } } },
+    }));
+    const client = new PalplussClient({ apiKey: 'k', baseUrl: 'https://api.test', timeoutMs: 5000, fetch: api.fetch });
+    await expect(client.b2cPayout({ amount: 50, phone: '254712345678' }, 'i')).rejects.toMatchObject({ code: 'KYC_NOT_VERIFIED', status: 403 });
+  });
+
+  it('joins validation messages sent as an array', async () => {
+    const api = fakeApi(() => ({ status: 400, body: { success: false, error: { code: 'HTTP_400', message: ['amount must be ≥ 10', 'phone is required'] } } }));
+    const client = new PalplussClient({ apiKey: 'k', baseUrl: 'https://api.test', timeoutMs: 5000, fetch: api.fetch });
+    await expect(client.stkPush({ amount: 1, phone: '' })).rejects.toMatchObject({ message: 'amount must be ≥ 10; phone is required', code: 'HTTP_400' });
+  });
+});

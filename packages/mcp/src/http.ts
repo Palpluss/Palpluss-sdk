@@ -13,12 +13,12 @@ export interface HttpServerOptions {
   port?: number;
   /**
    * Required bearer token for every request (PALPLUSS_MCP_HTTP_TOKEN). Protects
-   * the endpoint so only the app you run it for (e.g. Konaar) can call it.
+   * the endpoint so only the app you run it for can call it.
    */
   token: string;
   /**
    * Accept the merchant's PalPluss key in `X-PalPluss-Api-Key` when a session
-   * starts (one endpoint serving many merchants, e.g. Konaar). Off by default.
+   * starts (one endpoint serving many merchants). Off by default.
    */
   allowKeyHeader?: boolean;
   /** Close sessions idle longer than this (default 30 minutes). */

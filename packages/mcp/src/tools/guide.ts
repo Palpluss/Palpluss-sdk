@@ -13,7 +13,7 @@ PalPluss is an M-Pesa payments API for Kenya: collect with STK Push, pay out wit
 
 - Base URL: ${BASE}
 - Auth: \`Authorization: Basic <API key>\` (keys from console.palpluss.com → API Keys). Server-side only — never ship a key to a browser or mobile app.
-- Responses: \`{ success: true, data, requestId }\`; errors \`{ success: false, error: { code, message, details } }\`.
+- Responses: \`{ success: true, data, requestId }\`; errors \`{ success: false, error: { code, message, details } }\`. \`error.code\` is \`HTTP_<status>\`; the specific reason (e.g. \`KYC_NOT_VERIFIED\`) is in \`error.details.code\` when there is one.
 - Phones: send 07XXXXXXXX, 01XXXXXXXX, +254… or 254…; PalPluss normalises to 254XXXXXXXXX.
 - Amounts: whole Kenyan shillings.
 - Two wallets: the **service wallet** pays PalPluss fees (STK Push is a flat KES 3 for KES 10 and above; KES 1–9 is free); the **B2C wallet** is the float payouts are sent from.
@@ -57,7 +57,7 @@ POST ${BASE}/b2c/payouts  (header \`Idempotency-Key\` strongly recommended)
 - Fees are tiered by amount (from KES 6) and charged from the service wallet.
 - The response returns \`status: "PROCESSING"\`; the final SUCCESS/FAILED arrives by webhook. A FAILED payout is refunded to the B2C wallet automatically.
 - Use one Idempotency-Key per intended payout so retries never pay twice.
-- Limit: 1 payout per phone number per minute.`,
+- Limit: 1 payout per phone number per minute (429, details.code \`B2C_PAYOUT_COOLDOWN\`). Not enough float: details.code \`INSUFFICIENT_FUNDS\`.`,
 
   channels: `# Payment channels
 Channels are the Paybills and Tills customer money is collected into.
@@ -80,16 +80,19 @@ Channels are the Paybills and Tills customer money is collected into.
 - Limit: 2 top-ups per phone number per minute.`,
 
   errors: `# Common errors
-| Code | Meaning | What to do |
-|---|---|---|
-| INVALID_API_KEY / AUTH_HEADER_INVALID | Key missing or wrong | Send \`Authorization: Basic <key>\` |
-| INVALID_PHONE | Not a Kenyan mobile number | Validate before calling |
-| NO_PAYMENT_CHANNELS / NO_DEFAULT_CHANNEL | No channel to collect into | Add one, or set a default |
-| INSUFFICIENT_SERVICE_BALANCE (402) | Can't cover the fee | Top up the service wallet |
-| STK_RATE_LIMITED (429) | >2 prompts/min to one number | Wait details.retryAfterSeconds |
-| TRANSACTION_HEALTH_BLOCKED (429) | Too many failed prompts recently | Wait until details.blockedUntil |
-| 403 on payouts | KYC not approved / account inactive | Finish KYC in the console |
-Always read \`error.code\`, not the message text.`,
+Error responses carry \`error.code\` as \`HTTP_<status>\`; read \`error.details.code\` for the specific reason.
+| HTTP | details.code | Meaning | What to do |
+|---|---|---|---|
+| 401 | INVALID_API_KEY / AUTH_HEADER_INVALID | Key missing or wrong | Send \`Authorization: Basic <key>\` |
+| 400 | INVALID_PHONE | Not a Kenyan mobile number | Validate before calling |
+| 400 | NO_PAYMENT_CHANNELS / NO_DEFAULT_CHANNEL | No channel to collect into | Add one, or set a default |
+| 402 | INSUFFICIENT_SERVICE_BALANCE | Can't cover the fee | Top up the service wallet |
+| 403 | KYC_NOT_VERIFIED | Payouts need approved KYC | Finish KYC in the console |
+| 429 | STK_RATE_LIMITED / WALLET_TOPUP_RATE_LIMITED | >2 prompts per minute to one number | Wait details.retryAfterSeconds |
+| 429 | B2C_PAYOUT_COOLDOWN | >1 payout per minute to one number | Wait a minute |
+| 429 | TRANSACTION_HEALTH_BLOCKED | Too many failed prompts recently | Wait until details.blockedUntil |
+| 429 | RATE_LIMIT_EXCEEDED | API key over 60 requests per minute | Slow down |
+`,
 
   'go-live': `# Go-live checklist
 1. API key stored server-side only (environment variable / secret manager).

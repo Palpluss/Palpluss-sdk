@@ -166,7 +166,7 @@ palpluss-sdk/
 │   ├── php/              palpluss/sdk         — PHP 8.1+
 │   ├── go/               palpluss-go          — Go 1.21+, zero deps
 │   ├── paylink/          @palpluss/paylink    — browser checkout widget
-│   └── mcp/              @palpluss/mcp        — MCP server for AI coding tools and Konaar
+│   └── mcp/              @palpluss/mcp        — MCP server for AI coding tools
 └── scripts/              Tooling and automation
 ```
 

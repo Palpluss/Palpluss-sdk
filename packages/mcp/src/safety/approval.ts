@@ -18,7 +18,7 @@ export type ApprovalOutcome =
   | { approved: false; reason: 'declined' | 'cancelled' | 'unavailable'; message: string };
 
 /**
- * Decides whether an action may go ahead. An embedding app (such as Konaar)
+ * Decides whether an action may go ahead. An embedding app
  * can pass its own — for example one that opens its confirm dialog.
  */
 export type Approver = (request: ApprovalRequest) => Promise<ApprovalOutcome>;

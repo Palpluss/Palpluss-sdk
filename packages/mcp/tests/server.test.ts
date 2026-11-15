@@ -107,13 +107,13 @@ describe('payouts', () => {
       route: (c) =>
         c.path === '/v1/b2c/payouts'
           ? fail
-            ? { status: 402, body: { success: false, error: { code: 'INSUFFICIENT_B2C_BALANCE', message: 'Low float' } } }
+            ? { status: 402, body: { success: false, error: { code: 'HTTP_402', message: 'Insufficient B2C balance', details: { code: 'INSUFFICIENT_FUNDS' } } } }
             : ok({ transactionId: TX, status: 'PROCESSING' })
           : undefined,
     });
     const first = await s.call('palpluss_send_payout', { amount: 800, phone: '0712345678', reference: 'A' });
-    expect(first.json.error.code).toBe('INSUFFICIENT_B2C_BALANCE');
-    expect(first.json.hint).toMatch(/Top up the B2C wallet/);
+    expect(first.json.error.code).toBe('INSUFFICIENT_FUNDS');
+    expect(first.json.hint).toMatch(/palpluss_topup_b2c_wallet/);
     fail = false;
     expect((await s.call('palpluss_send_payout', { amount: 800, phone: '0712345678', reference: 'B' })).isError).toBe(false);
     const third = await s.call('palpluss_send_payout', { amount: 300, phone: '0712345678', reference: 'C' });
@@ -129,7 +129,7 @@ describe('payouts', () => {
     await s.close();
   });
 
-  it('an embedding app can supply its own approver (e.g. Konaar\'s confirm dialog)', async () => {
+  it('an embedding app can supply its own approver (e.g. its own confirm dialog)', async () => {
     const seen: string[] = [];
     const s = await connect({
       toolsets: ['payouts'],

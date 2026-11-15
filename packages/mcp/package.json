@@ -18,7 +18,7 @@
   "files": [
     "dist",
     "README.md",
-    "KONAAR.md"
+    "EMBEDDING.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json && chmod +x dist/cli.js",

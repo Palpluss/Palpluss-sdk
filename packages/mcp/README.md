@@ -1,8 +1,8 @@
 # @palpluss/mcp
 
-The PalPluss [Model Context Protocol](https://modelcontextprotocol.io) server. It lets AI coding tools — Claude Code, Cursor, VS Code, Konaar — work with your PalPluss account: check wallet balances, look up transactions, manage payment channels, collect with M-Pesa STK Push and send B2C payouts.
+The PalPluss [Model Context Protocol](https://modelcontextprotocol.io) server. It lets AI tools that support MCP — such as Claude Code, Cursor and VS Code — work with your PalPluss account: check wallet balances, look up transactions, manage payment channels, collect with M-Pesa STK Push and send B2C payouts.
 
-Anything that moves money or changes where money lands **asks you to approve it first**, in your own app. The AI never sees or answers that prompt.
+Anything that moves money or changes where money lands **asks you to approve it first**. The approval request goes to your MCP client's interface, not to the AI model, so the model can't approve its own actions.
 
 > Requires Node.js 18+ and a PalPluss API key from [console.palpluss.com](https://console.palpluss.com) → API Keys.
 
@@ -11,7 +11,7 @@ Anything that moves money or changes where money lands **asks you to approve it 
 ### Claude Code
 
 ```bash
-claude mcp add palpluss -e PALPLUSS_API_KEY=pk_live_xxx -- npx -y @palpluss/mcp
+claude mcp add palpluss -e PALPLUSS_API_KEY=your_api_key -- npx -y @palpluss/mcp
 ```
 
 ### Cursor — `.cursor/mcp.json`
@@ -22,7 +22,7 @@ claude mcp add palpluss -e PALPLUSS_API_KEY=pk_live_xxx -- npx -y @palpluss/mcp
     "palpluss": {
       "command": "npx",
       "args": ["-y", "@palpluss/mcp"],
-      "env": { "PALPLUSS_API_KEY": "pk_live_xxx" }
+      "env": { "PALPLUSS_API_KEY": "your_api_key" }
     }
   }
 }
@@ -45,7 +45,7 @@ claude mcp add palpluss -e PALPLUSS_API_KEY=pk_live_xxx -- npx -y @palpluss/mcp
 
 > **Before it's on npm:** build it (`pnpm --filter @palpluss/mcp build`) and use `node /path/to/palpluss-sdk/packages/mcp/dist/cli.js` in place of `npx -y @palpluss/mcp`.
 
-Then ask your assistant things like *"What's my PalPluss service wallet balance?"*, *"Show yesterday's failed STK payments"*, or *"Add my KCB Paybill 522522, account 1188990011, as a payment channel"*.
+Then ask your assistant things like *"What's my PalPluss service wallet balance?"*, *"Show my latest failed STK payments"*, or *"Add my KCB Paybill 522522, account 1188990011, as a payment channel"*.
 
 ## Tools
 
@@ -78,8 +78,8 @@ PALPLUSS_MCP_TOOLSETS=read,wallets,collect,channels,payouts   # or: all
 
 PalPluss's own protections always apply, because every call goes through the public API: rate limits, per-phone limits, STK abuse protection and the STK success-rate pause. On top of those, this server adds:
 
-- **Your approval for every write.** Top-ups, STK pushes, payouts and channel changes show an approval prompt in your app (MCP *elicitation*) with the amount, the masked phone number and, for channels, what changes. The AI can't answer it. Apps that can't show approval prompts are refused, never silently allowed.
-- **Payout limits** per API key: per payout, per day (total and count), and an optional allowlist of recipient numbers. They're checked before you're asked, and again just before the payout is sent.
+- **Your approval for every write.** Top-ups, STK pushes, payouts and channel changes send an approval request (MCP *elicitation*) that your client shows you, with the amount, the masked phone number and, for channels, what changes. If your client doesn't support elicitation, these tools refuse instead of going ahead.
+- **Payout limits** per API key: per payout, per day (total and count), and an optional allowlist of recipient numbers. They're checked before you're asked, and again just before the payout is sent. The limits are enforced by this server process, not by PalPluss, so if you run several copies each keeps its own tally.
 - **No double payments.** Payouts and top-ups carry an idempotency key, so an AI retrying after a timeout can't pay twice. Give each separate payout its own `reference`.
 - **Prompt-injection defence.** Text written by customers or providers (references, descriptions, result messages) is returned marked `untrusted:`. The server's instructions tell the AI never to act on it.
 - **Privacy.** Phone numbers are masked in everything returned to the AI and in the audit log. The API key is never logged.
@@ -93,7 +93,7 @@ PalPluss's own protections always apply, because every call goes through the pub
 | `PALPLUSS_API_KEY` | — (required) | Your PalPluss API key |
 | `PALPLUSS_MCP_TOOLSETS` | `read,wallets,collect` | Add `channels`, `payouts`, or use `all` |
 | `PALPLUSS_MCP_READ_ONLY` | `false` | `true` turns off every write tool |
-| `PALPLUSS_MCP_APPROVAL` | `elicit` | `none` disables approval prompts — only for tests against a sandbox account |
+| `PALPLUSS_MCP_APPROVAL` | `elicit` | `none` disables approval prompts. Use it only for automated tests against a fake or local API, never with a live key |
 | `PALPLUSS_MCP_MAX_PAYOUT` | `5000` | Largest single payout (KES) |
 | `PALPLUSS_MCP_DAILY_PAYOUT_TOTAL` | `20000` | Payout total per Nairobi day (KES) |
 | `PALPLUSS_MCP_DAILY_PAYOUT_COUNT` | `20` | Payouts per Nairobi day |
@@ -107,11 +107,11 @@ PalPluss's own protections always apply, because every call goes through the pub
 
 ## HTTP mode
 
-For apps that connect over the network rather than starting a process — Konaar, or a hosted deployment:
+For apps that connect over the network instead of starting a local process, such as your own hosted deployment:
 
 ```bash
 PALPLUSS_MCP_HTTP_TOKEN=$(openssl rand -hex 24) \
-PALPLUSS_API_KEY=pk_live_xxx \
+PALPLUSS_API_KEY=your_api_key \
 npx @palpluss/mcp --http --port 3333            # → http://127.0.0.1:3333/mcp
 ```
 
@@ -120,33 +120,26 @@ npx @palpluss/mcp --http --port 3333            # → http://127.0.0.1:3333/mcp
 - `PALPLUSS_MCP_HTTP_ALLOW_KEY_HEADER=true` lets one endpoint serve many merchants. Each session starts with the merchant's key in `X-PalPluss-Api-Key`, and the session is bound to that key.
 - Binds to `127.0.0.1` by default. Put it behind TLS if you expose it.
 
-## Embedding (Konaar and other apps)
+## Embedding in your own app
+
+Use `createPalplussMcpServer()` to run the server inside your own Node.js app and connect it to any MCP transport. Pass an `approver` to show approvals in your own interface. See [EMBEDDING.md](./EMBEDDING.md).
 
 ```ts
 import { createPalplussMcpServer } from '@palpluss/mcp';
 
 const { server } = createPalplussMcpServer({
-  apiKey: merchant.palplussKey,
-  toolsets: ['read', 'wallets', 'collect', 'channels', 'payouts'],
-  limits: { maxPayout: 2000, dailyPayoutTotal: 10000, dailyPayoutCount: 10, maxTopup: 50000, maxStk: 150000, payoutAllowlist: [] },
-  // Use your own confirm dialog instead of MCP elicitation:
-  approver: async (req) =>
-    (await showConfirmDialog(req.title, req.details, req.consequence))
-      ? { approved: true, via: 'host' }
-      : { approved: false, reason: 'declined', message: 'Declined in Konaar.' },
-  onAudit: (event) => auditLog.write(event),
+  apiKey: process.env.PALPLUSS_API_KEY!,
+  toolsets: ['read', 'wallets', 'collect'],
 });
 await server.connect(transport); // stdio, Streamable HTTP, or an in-memory pair
 ```
 
-See [KONAAR.md](./KONAAR.md) for the Konaar integration guide.
-
 ## Development
 
 ```bash
-pnpm --filter @palpluss/mcp test        # 33 tests: guardrails, approvals, HTTP sessions
+pnpm --filter @palpluss/mcp test        # guardrails, approvals, HTTP sessions
 pnpm --filter @palpluss/mcp build
-PALPLUSS_API_KEY=pk_test_xxx node packages/mcp/dist/cli.js
+PALPLUSS_API_KEY=your_api_key node packages/mcp/dist/cli.js
 ```
 
 ## Releasing

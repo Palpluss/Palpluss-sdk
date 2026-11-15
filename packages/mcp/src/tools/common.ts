@@ -45,15 +45,22 @@ function errorResult(code: string, message: string, hint?: string): CallToolResu
 /** Plain-language next steps for common PalPluss error codes. */
 const HINTS: Record<string, string> = {
   INVALID_API_KEY: 'The API key was rejected. Create a new key at console.palpluss.com → API Keys.',
+  AUTH_HEADER_INVALID: 'The API key is missing or malformed. Check PALPLUSS_API_KEY.',
   TENANT_INACTIVE: 'This PalPluss account is not active. Contact PalPluss support.',
+  ACCOUNT_INACTIVE: 'This PalPluss account is not active. Contact PalPluss support.',
   INSUFFICIENT_SERVICE_BALANCE: 'Top up the service wallet (palpluss_topup_service_wallet) — it pays the per-transaction fees.',
-  INSUFFICIENT_B2C_BALANCE: 'Top up the B2C wallet (palpluss_topup_b2c_wallet) before sending payouts.',
+  INSUFFICIENT_FUNDS: 'The B2C wallet does not have enough for this payout. Top it up (palpluss_topup_b2c_wallet) first.',
+  KYC_NOT_VERIFIED: 'Payouts need approved KYC. Finish KYC in the PalPluss console.',
   STK_RATE_LIMITED: 'Too many payment prompts to this number. Wait the number of seconds in details.retryAfterSeconds.',
+  WALLET_TOPUP_RATE_LIMITED: 'Too many top-up prompts to this number. Wait the number of seconds in details.retryAfterSeconds.',
+  B2C_PAYOUT_COOLDOWN: 'Only one payout per phone number per minute. Wait a minute before paying this number again.',
+  STK_TEMP_BANNED: 'STK pushes are temporarily blocked by abuse protection. Wait until details.bannedUntil.',
   TRANSACTION_HEALTH_BLOCKED: 'STK pushes are paused because too many recent prompts failed. Wait until details.blockedUntil.',
-  KYC_NOT_APPROVED: 'Payouts need an approved KYC. Finish KYC in the PalPluss console.',
   NO_PAYMENT_CHANNELS: 'Add a payment channel first (palpluss_create_payment_channel, or in the console).',
   NO_DEFAULT_CHANNEL: 'Set a default channel (palpluss_set_default_payment_channel) or pass channelId.',
-  RATE_LIMITED: 'The API key hit its rate limit. Slow down and retry shortly.',
+  CHANNEL_NOT_FOUND: 'No such payment channel on this account. List them with palpluss_list_payment_channels.',
+  DUPLICATE_CHANNEL: 'This Paybill/account or Till is already a channel on this account.',
+  RATE_LIMIT_EXCEEDED: 'The API key hit its rate limit (60 requests per minute). Slow down and retry shortly.',
 };
 
 /** Fallback next step when PalPluss returns an error without a specific code. */

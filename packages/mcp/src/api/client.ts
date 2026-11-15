@@ -136,21 +136,22 @@ export class PalplussClient {
         requestId,
       );
     }
-    let payload: { success?: boolean; data?: unknown; error?: { message?: string; code?: string; details?: unknown } };
+    let payload: { success?: boolean; data?: unknown; error?: { message?: unknown; code?: string; details?: unknown } };
     try {
       payload = text ? JSON.parse(text) : {};
     } catch {
       throw new PalplussApiError('PalPluss returned malformed JSON.', res.status, 'MALFORMED_RESPONSE', undefined, requestId);
     }
     if (!res.ok || payload.success === false) {
-      const e = payload.error ?? {};
-      throw new PalplussApiError(
-        e.message || `PalPluss request failed (${res.status}).`,
-        res.status,
-        e.code || `HTTP_${res.status}`,
-        e.details,
-        requestId,
-      );
+      const e = (payload.error ?? {}) as { message?: unknown; code?: string; details?: unknown };
+      // The API's error filter reports `code` as HTTP_<status> and keeps the
+      // specific code (e.g. KYC_NOT_VERIFIED) in details.code — prefer that.
+      const details = e.details && typeof e.details === 'object' ? (e.details as Record<string, unknown>) : undefined;
+      const specific = typeof details?.code === 'string' ? details.code : undefined;
+      const code = specific && (!e.code || /^HTTP_\d+$/.test(e.code)) ? specific : e.code || `HTTP_${res.status}`;
+      // Validation errors arrive with message as an array of strings.
+      const message = Array.isArray(e.message) ? e.message.join('; ') : typeof e.message === 'string' ? e.message : '';
+      throw new PalplussApiError(message || `PalPluss request failed (${res.status}).`, res.status, code, e.details, requestId);
     }
     return (payload.data ?? payload) as T;
   }

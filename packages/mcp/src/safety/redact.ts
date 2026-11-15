@@ -41,6 +41,8 @@ const UNTRUSTED_KEYS = new Set([
   'result_desc',
   'resultDescription',
   'resultDesc',
+  'customer_name',
+  'customerName',
 ]);
 
 export const UNTRUSTED_NOTE =
