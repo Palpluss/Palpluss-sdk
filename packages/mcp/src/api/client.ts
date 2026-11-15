@@ -4,7 +4,7 @@
  * limits, STK abuse protection, transaction health — always apply.
  */
 
-export const USER_AGENT = 'palpluss-mcp/0.1.0';
+export const USER_AGENT = 'palpluss-mcp/0.2.0';
 
 export class PalplussApiError extends Error {
   constructor(
@@ -64,13 +64,64 @@ export interface PayoutBody {
 
 export interface ChannelCreateBody {
   name: string;
-  type: 'PAYBILL' | 'TILL' | 'SHORTCODE' | 'BUYGOODS';
+  type: 'PAYBILL' | 'TILL' | 'SHORTCODE';
   shortcode: string;
   accountNumber?: string;
   isDefault?: boolean;
 }
 
 export type ChannelUpdateBody = Partial<ChannelCreateBody> & { accountNumber?: string | null };
+
+export interface WalletHistoryQuery {
+  wallet?: 'service' | 'b2c';
+  category?: 'charge' | 'topup' | 'refund' | 'payout' | 'bonus' | 'other';
+  limit?: number;
+  cursor?: string;
+}
+
+export interface PaymentLinkBody {
+  amount?: number;
+  phone_number?: string;
+  customer_name?: string;
+  external_reference?: string;
+  channel_id?: string;
+  callbackUrl?: string;
+  expiry?: '1h' | '6h' | '24h' | '72h' | '168h' | '720h' | 'never';
+}
+
+/** GET /v1/api-key — the key this server runs with. */
+export interface KeyInfo {
+  id: string;
+  name: string;
+  kind: 'STANDARD' | 'MCP';
+  mode: 'live' | 'test';
+  livemode: boolean;
+  scopes: 'all' | { scope: string; label: string }[];
+  expiresAt: string | null;
+  connectedApp: string | null;
+  policy: null | {
+    payoutMax: number;
+    dailyPayoutTotal: number;
+    dailyPayoutCount: number;
+    payoutAllowlist: string[];
+    approvals: { payouts: boolean; channels: boolean };
+    payoutsToday: { total: number; count: number; remainingTotal: number; remainingCount: number };
+  };
+}
+
+/** Returned (HTTP 202) when PalPluss holds a request for the merchant's approval. */
+export interface PendingApproval {
+  status: 'PENDING_APPROVAL';
+  approvalId: string;
+  action: string;
+  expiresAt: string;
+  approveUrl: string;
+  message: string;
+}
+
+export function isPendingApproval(value: unknown): value is PendingApproval {
+  return !!value && typeof value === 'object' && (value as { status?: unknown }).status === 'PENDING_APPROVAL' && 'approvalId' in value;
+}
 
 type Json = Record<string, unknown>;
 
@@ -151,7 +202,10 @@ export class PalplussClient {
       const code = specific && (!e.code || /^HTTP_\d+$/.test(e.code)) ? specific : e.code || `HTTP_${res.status}`;
       // Validation errors arrive with message as an array of strings.
       const message = Array.isArray(e.message) ? e.message.join('; ') : typeof e.message === 'string' ? e.message : '';
-      throw new PalplussApiError(message || `PalPluss request failed (${res.status}).`, res.status, code, e.details, requestId);
+      // The filter wraps the original body ({ message, code, details }) in
+      // error.details; surface the inner details (e.g. retryAfterSeconds) directly.
+      const inner = details && details.details && typeof details.details === 'object' ? details.details : undefined;
+      throw new PalplussApiError(message || `PalPluss request failed (${res.status}).`, res.status, code, inner ?? e.details, requestId);
     }
     return (payload.data ?? payload) as T;
   }
@@ -206,5 +260,41 @@ export class PalplussClient {
 
   b2cPayout(body: PayoutBody, idempotencyKey: string) {
     return this.request('POST', '/b2c/payouts', { body, idempotencyKey });
+  }
+
+  keyInfo() {
+    return this.request<KeyInfo>('GET', '/api-key');
+  }
+
+  walletHistory(query: WalletHistoryQuery = {}) {
+    return this.request('GET', '/wallets/history', { query: { ...query } });
+  }
+
+  estimateFee(service: 'STK' | 'B2C', amount: number) {
+    return this.request('GET', '/fees/estimate', { query: { service, amount } });
+  }
+
+  listPaymentLinks(query: { limit?: number; cursor?: string } = {}) {
+    return this.request('GET', '/payment-links', { query: { ...query } });
+  }
+
+  getPaymentLink(id: string) {
+    return this.request('GET', `/payment-links/${encodeURIComponent(id)}`);
+  }
+
+  createPaymentLink(body: PaymentLinkBody) {
+    return this.request('POST', '/payment-links', { body });
+  }
+
+  disablePaymentLink(id: string) {
+    return this.request('DELETE', `/payment-links/${encodeURIComponent(id)}`);
+  }
+
+  getApproval(id: string) {
+    return this.request('GET', `/approvals/${encodeURIComponent(id)}`);
+  }
+
+  listApprovals(query: { status?: string; limit?: number; cursor?: string } = {}) {
+    return this.request('GET', '/approvals', { query: { ...query } });
   }
 }

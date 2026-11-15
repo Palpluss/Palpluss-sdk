@@ -42,13 +42,30 @@ const result = await client.callTool({ name: 'palpluss_get_wallet_balances', arg
 
 Without an `approver`, the server asks through MCP elicitation, and tools that need approval refuse when the connected client doesn't support elicitation.
 
+## Let PalPluss handle approvals
+
+If your app has no confirm dialog of its own, use an **MCP key** (created by the merchant under API Keys, or obtained by OAuth sign-in) and `approval: 'backend'`:
+
+```ts
+const { server } = createPalplussMcpServer({
+  apiKey: merchantMcpKey,
+  approval: 'backend',
+  toolsets: ['read', 'collect', 'payouts'],
+});
+```
+
+PalPluss then enforces the key's permissions and payout limits, and holds payouts and channel changes until the merchant approves them in the console. Tools return `status: "PENDING_APPROVAL"` with an `approvalId`; `palpluss_wait_for_approval` follows it. Standard (full-access) keys are refused in this mode.
+
+For a stateless HTTP endpoint (several instances, no sessions), use `handleStatelessMcpRequest(req, res, parsedBody, options)` with the same options.
+
 ## Things to get right
 
 - **Keep the API key on your server.** Never send it to a browser, a mobile app, or an environment that runs untrusted code.
 - **Allowlist tools.** Expose only the tools your product needs, and add `palpluss_send_payout` deliberately.
 - **Show approvals to the account owner,** not to whoever happens to be using the AI.
 - **Keep the audit events** so users can see what was done on their account.
-- **Payout limits are per server process.** They're held in memory (and in `stateFile` if you set one). If you run several processes, each enforces its own limits.
+- **Payout limits in `limits` are per server process.** They're held in memory (and in `stateFile` if you set one). If you run several processes, each enforces its own limits. Limits set on an MCP key are enforced by PalPluss for all of them.
+- **Test first.** A test key behaves the same with simulated money; `palpluss_get_guardrails` reports the mode.
 
 ## Over HTTP
 

@@ -13,9 +13,13 @@ export const DEFAULT_TOOLSETS: Toolset[] = ['read', 'wallets', 'collect'];
  * How money-moving and channel-changing tools get a human's yes:
  * - `elicit` (default): the MCP client shows the person an approval prompt;
  *   the AI never sees or answers it. Clients without that support are refused.
+ * - `backend`: rely on PalPluss itself. Only works with MCP keys: PalPluss
+ *   enforces the key's permissions and limits and holds payouts and channel
+ *   changes until the merchant approves them in the console. Anything else is
+ *   refused. Used by PalPluss' hosted server and by apps that embed this one.
  * - `none`: no prompt. Only for automated tests against a fake or local API, never a live key.
  */
-export type ApprovalMode = 'elicit' | 'none';
+export type ApprovalMode = 'elicit' | 'backend' | 'none';
 
 export interface Limits {
   /** Largest single B2C payout, KES. */
@@ -114,8 +118,8 @@ export function loadConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Palplus
     );
   }
   const approval = (env.PALPLUSS_MCP_APPROVAL?.trim().toLowerCase() || 'elicit') as ApprovalMode;
-  if (approval !== 'elicit' && approval !== 'none') {
-    throw new ConfigError('PALPLUSS_MCP_APPROVAL must be "elicit" or "none".');
+  if (approval !== 'elicit' && approval !== 'backend' && approval !== 'none') {
+    throw new ConfigError('PALPLUSS_MCP_APPROVAL must be "elicit", "backend" or "none".');
   }
   return {
     apiKey,

@@ -2,7 +2,19 @@
  * Static integration guidance served to coding assistants. Kept short and
  * factual; the full reference is docs.palpluss.com.
  */
-export const GUIDE_TOPICS = ['overview', 'stk-push', 'webhooks', 'b2c-payouts', 'channels', 'wallets', 'errors', 'go-live'] as const;
+export const GUIDE_TOPICS = [
+  'overview',
+  'stk-push',
+  'webhooks',
+  'b2c-payouts',
+  'channels',
+  'wallets',
+  'payment-links',
+  'test-mode',
+  'mcp-keys',
+  'errors',
+  'go-live',
+] as const;
 export type GuideTopic = (typeof GUIDE_TOPICS)[number];
 
 const BASE = 'https://api.palpluss.com/v1';
@@ -66,7 +78,7 @@ Channels are the Paybills and Tills customer money is collected into.
 \`\`\`json
 { "name": "Main Paybill", "type": "PAYBILL", "shortcode": "247247", "accountNumber": "0123456789", "isDefault": true }
 \`\`\`
-- Types: PAYBILL (needs accountNumber), TILL / BUYGOODS / SHORTCODE (no accountNumber).
+- Types: PAYBILL (with the accountNumber customers pay into), TILL, SHORTCODE.
 - The same Paybill can be added more than once with different account numbers (e.g. several bank accounts).
 - Update: PATCH …/channels/{id}; Delete: DELETE …/channels/{id} (soft delete; the default moves to another channel).
 - Changing channels changes where future payments land — treat it as sensitive.`,
@@ -77,7 +89,40 @@ Channels are the Paybills and Tills customer money is collected into.
 - Top-ups are STK pushes to the phone that pays; the wallet is credited once M-Pesa confirms.
 - Send an \`Idempotency-Key\` header so a retried top-up isn't charged twice.
 - Requests fail with 402 INSUFFICIENT_SERVICE_BALANCE when the service wallet can't cover a fee.
-- Limit: 2 top-ups per phone number per minute.`,
+- Limit: 2 top-ups per phone number per minute.
+- History: GET ${BASE}/wallets/history?wallet=service|b2c&category=charge|topup|refund|payout — every entry with the balance after it.
+- Fees: GET ${BASE}/fees/estimate?service=STK|B2C&amount=500 returns what this account's plan charges.`,
+
+  'payment-links': `# Payment links
+A payment link is a hosted page where the customer enters their number and pays by STK Push — no checkout code needed.
+- Create: POST ${BASE}/payment-links
+\`\`\`json
+{ "amount": 1500, "external_reference": "INV-2041", "customer_name": "Jane", "expiry": "72h",
+  "callbackUrl": "https://yourapp.com/webhooks/palpluss" }
+\`\`\`
+- Omit \`amount\` to let the customer type it. \`phone_number\` pre-fills their number; \`channel_id\` picks the Paybill/Till (default channel otherwise).
+- \`expiry\`: 1h, 6h, 24h, 72h, 168h, 720h or never (default).
+- The response has \`url\` — share it. Payments appear as STK transactions and fire your callback like any STK push.
+- List: GET ${BASE}/payment-links; one: GET ${BASE}/payment-links/{id}; disable: DELETE ${BASE}/payment-links/{id}.`,
+
+  'test-mode': `# Test mode
+Create a **test** key in the console (API Keys → mode: Test). Test keys use the same endpoints and response shapes with simulated money:
+- Nothing reaches M-Pesa. Every response and callback has \`livemode: false\`.
+- Each account gets test wallets with KES 10,000 in the service wallet and KES 10,000 in the B2C wallet.
+- STK pushes, payouts and top-ups settle about 5 seconds later and send your callback.
+- How it ends depends on the phone number: 0700000001 → FAILED (insufficient balance), 0700000002 → CANCELLED (customer cancelled), 0700000003 → FAILED (customer unreachable), any other valid number → SUCCESS.
+- Payouts work without KYC in test mode. Fees follow your real pricing plan.
+- Payment channels and payment links are live settings: test keys can read them but not change them (403 NOT_AVAILABLE_IN_TEST_MODE).
+- A key can be switched between test and live in the console (API Keys → Edit); it applies from the next request and the key string stays the same. Check GET ${BASE}/api-key for the current mode.`,
+
+  'mcp-keys': `# MCP keys (for AI tools)
+In the console (API Keys) choose **MCP** as the key type to give an AI tool limited access:
+- Permissions: only what you tick works — transactions:read, wallets:read, wallets:topup, payments:stk, paylinks:read, paylinks:write, channels:read, channels:write, payouts:write. Anything else returns 403 INSUFFICIENT_SCOPE.
+- Payout limits enforced by PalPluss: per payout, per day (total and count, Nairobi time) and an optional allowlist of numbers.
+- Approvals: payouts and channel changes can be held until you approve them in the console. The API then answers 202 with \`status: "PENDING_APPROVAL"\` and an \`approvalId\`; follow it with GET ${BASE}/approvals/{id} (EXECUTED, REJECTED, EXPIRED or FAILED). Requests expire after 15 minutes.
+- Optional expiry date and IP allowlist (exact IPs or CIDR ranges).
+- GET ${BASE}/api-key shows the key's kind, mode, permissions, limits and today's payout usage.
+- Standard keys keep full access and none of these limits.`,
 
   errors: `# Common errors
 Error responses carry \`error.code\` as \`HTTP_<status>\`; read \`error.details.code\` for the specific reason.
@@ -88,9 +133,14 @@ Error responses carry \`error.code\` as \`HTTP_<status>\`; read \`error.details.
 | 400 | NO_PAYMENT_CHANNELS / NO_DEFAULT_CHANNEL | No channel to collect into | Add one, or set a default |
 | 402 | INSUFFICIENT_SERVICE_BALANCE | Can't cover the fee | Top up the service wallet |
 | 403 | KYC_NOT_VERIFIED | Payouts need approved KYC | Finish KYC in the console |
-| 429 | STK_RATE_LIMITED / WALLET_TOPUP_RATE_LIMITED | >2 prompts per minute to one number | Wait details.retryAfterSeconds |
+| 401 | API_KEY_EXPIRED | The key's expiry date passed | Create a new key |
+| 403 | INSUFFICIENT_SCOPE | MCP key lacks that permission | Grant it in the console |
+| 403 | IP_NOT_ALLOWED | Request from an IP not on the key's allowlist | Update the allowlist |
+| 403 | NOT_AVAILABLE_IN_TEST_MODE | Test key on a live-only endpoint | Use a live key |
+| 403 | PAYOUT_ABOVE_KEY_LIMIT / PAYOUT_DAILY_TOTAL_REACHED / PAYOUT_DAILY_COUNT_REACHED / PAYOUT_RECIPIENT_NOT_ALLOWED | MCP key payout limits | Change them in the console |
+| 429 | STK_RATE_LIMITED / WALLET_TOPUP_RATE_LIMITED | >2 prompts per minute to one number | Wait error.details.details.retryAfterSeconds |
 | 429 | B2C_PAYOUT_COOLDOWN | >1 payout per minute to one number | Wait a minute |
-| 429 | TRANSACTION_HEALTH_BLOCKED | Too many failed prompts recently | Wait until details.blockedUntil |
+| 429 | TRANSACTION_HEALTH_BLOCKED | Too many failed prompts recently | Wait until error.details.details.blockedUntil |
 | 429 | RATE_LIMIT_EXCEEDED | API key over 60 requests per minute | Slow down |
 `,
 

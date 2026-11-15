@@ -6,6 +6,7 @@ import {
   idempotencyKey,
   kes,
   ok,
+  okOrPending,
   requireApproval,
   requirePhone,
   ToolRefusal,
@@ -51,7 +52,7 @@ export function registerWalletTools(ctx: ToolContext) {
           title: `Top up the ${label} with ${kes(amount)}`,
           details: { Amount: kes(amount), 'PIN prompt goes to': maskPhone(msisdn) ?? '', Wallet: label },
           consequence: `An M-Pesa prompt for ${kes(amount)} will be sent to ${maskPhone(msisdn)}. The wallet is credited only after that phone pays.`,
-        });
+        }, 'topup');
         const body = {
           amount,
           phone: msisdn,
@@ -63,7 +64,7 @@ export function registerWalletTools(ctx: ToolContext) {
         const res =
           wallet === 'service' ? await client.topupServiceWallet(body, key) : await client.topupB2cWallet(body, key);
         return ok(res, {
-          note: `Approved (${approval}). The PIN prompt was sent.`,
+          note: `Cleared (${approval}). The PIN prompt was sent.`,
           next: 'Use palpluss_get_transaction with the transactionId to see when it is paid, then palpluss_get_wallet_balances.',
         });
       }),
@@ -94,10 +95,14 @@ export function registerCollectTools(ctx: ToolContext) {
     guarded(ctx, 'palpluss_send_stk_push', async ({ amount, phone, accountReference, description, channelId, callbackUrl }) => {
       assertAmount(amount, { min: 1, max: config.limits.maxStk, label: 'STK push' });
       const msisdn = requirePhone(phone);
-      let channelLabel = 'Default channel';
+      let channelLabel = channelId ? `Channel ${channelId}` : 'Default channel';
       if (channelId) {
-        const ch = (await client.getChannel(channelId)) as { name?: string; shortcode?: string };
-        channelLabel = `${ch.name ?? 'Channel'} (${ch.shortcode ?? '?'})`;
+        try {
+          const ch = (await client.getChannel(channelId)) as { name?: string; shortcode?: string };
+          channelLabel = `${ch.name ?? 'Channel'} (${ch.shortcode ?? '?'})`;
+        } catch {
+          // The key may not be allowed to read channels; the ID is enough for the prompt.
+        }
       }
       const approval = await requireApproval(ctx, {
         action: 'stk_push',
@@ -109,7 +114,7 @@ export function registerCollectTools(ctx: ToolContext) {
           ...(accountReference ? { Reference: accountReference } : {}),
         },
         consequence: `The customer at ${maskPhone(msisdn)} gets an M-Pesa prompt to pay ${kes(amount)}.`,
-      });
+      }, 'collect');
       const res = await client.stkPush({
         amount,
         phone: msisdn,
@@ -119,7 +124,7 @@ export function registerCollectTools(ctx: ToolContext) {
         ...(callbackUrl ? { callbackUrl } : {}),
       });
       return ok(res, {
-        note: `Approved (${approval}). The prompt was sent; the customer has about a minute to enter their PIN.`,
+        note: `Cleared (${approval}). The prompt was sent; the customer has about a minute to enter their PIN.`,
         next: 'Call palpluss_wait_for_payment with the transactionId.',
       });
     }),
@@ -189,7 +194,7 @@ export function registerPayoutTools(ctx: ToolContext) {
           'Left today after this': `${kes(Math.max(0, left.remainingTotal - amount))} · ${Math.max(0, left.remainingCount - 1)} payouts`,
         },
         consequence: `${kes(amount)} will leave your B2C wallet and be sent to ${maskPhone(msisdn)}. This can't be undone once M-Pesa pays it.`,
-      });
+      }, 'payout');
 
       const release = limiter.reserve(amount, msisdn); // re-checks: limits may have moved while waiting
       try {
@@ -207,8 +212,8 @@ export function registerPayoutTools(ctx: ToolContext) {
         );
         const status = String((res as { status?: string }).status ?? '');
         if (status === 'FAILED') release();
-        return ok(res, {
-          note: `Approved (${approval}). Payout submitted with status ${status || 'unknown'}.`,
+        return okOrPending(res, {
+          note: `Cleared (${approval}). Payout submitted with status ${status || 'unknown'}.`,
           next: 'Call palpluss_wait_for_payment with the transactionId to confirm it was paid.',
         });
       } catch (err) {
@@ -222,7 +227,7 @@ export function registerPayoutTools(ctx: ToolContext) {
 /** Payment channels — every change needs approval: channels decide where money lands. */
 export function registerChannelTools(ctx: ToolContext) {
   const { server, client } = ctx;
-  const CHANNEL_TYPES = ['PAYBILL', 'TILL', 'BUYGOODS', 'SHORTCODE'] as const;
+  const CHANNEL_TYPES = ['PAYBILL', 'TILL', 'SHORTCODE'] as const;
 
   const describe = (c: { name?: unknown; type?: unknown; shortcode?: unknown; accountNumber?: unknown }) =>
     `${c.name ?? 'Unnamed'} — ${c.type ?? '?'} ${c.shortcode ?? '?'}${c.accountNumber ? ` / account ${c.accountNumber}` : ''}`;
@@ -235,7 +240,7 @@ export function registerChannelTools(ctx: ToolContext) {
         'Add a Paybill or Till that customer payments can be collected into. For a bank account, use the bank\'s M-Pesa Paybill as shortcode and the bank account number as accountNumber. Needs the person\'s approval.',
       inputSchema: {
         name: z.string().min(1).max(80),
-        type: z.enum(CHANNEL_TYPES).describe('PAYBILL needs accountNumber; TILL/BUYGOODS/SHORTCODE must not have one.'),
+        type: z.enum(CHANNEL_TYPES).describe('PAYBILL needs accountNumber; TILL and SHORTCODE must not have one.'),
         shortcode: z.string().regex(/^\d{4,10}$/).describe('The Paybill or Till number.'),
         accountNumber: z.string().min(1).max(30).optional(),
         makeDefault: z.boolean().optional().describe('Make this the channel STK pushes use by default.'),
@@ -255,9 +260,9 @@ export function registerChannelTools(ctx: ToolContext) {
         consequence: makeDefault
           ? `Customer payments will start going to ${type} ${shortcode}${accountNumber ? ` (account ${accountNumber})` : ''}. Check the numbers carefully.`
           : `The channel is added but not used by default.`,
-      });
+      }, 'channel');
       const res = await client.createChannel({ name, type, shortcode, ...(accountNumber ? { accountNumber } : {}), isDefault: !!makeDefault });
-      return ok(res, { note: `Approved (${approval}). Channel added.` });
+      return okOrPending(res, { note: `Cleared (${approval}). Channel added.` });
     }),
   );
 
@@ -287,9 +292,9 @@ export function registerChannelTools(ctx: ToolContext) {
         consequence: current.isDefault
           ? 'This is your default channel: new customer payments will go to the changed number.'
           : 'Payments that use this channel will go to the changed number.',
-      });
+      }, 'channel');
       const res = await client.updateChannel(channelId, patch);
-      return ok(res, { note: `Approved (${approval}). Channel updated.` });
+      return okOrPending(res, { note: `Cleared (${approval}). Channel updated.` });
     }),
   );
 
@@ -314,9 +319,9 @@ export function registerChannelTools(ctx: ToolContext) {
           'Current default': currentDefault ? describe(currentDefault) : 'None',
         },
         consequence: 'All new STK payments without a specific channel will go to the new default.',
-      });
+      }, 'channel');
       const res = await client.updateChannel(channelId, { isDefault: true });
-      return ok(res, { note: `Approved (${approval}). Default channel changed.` });
+      return okOrPending(res, { note: `Cleared (${approval}). Default channel changed.` });
     }),
   );
 
@@ -336,9 +341,103 @@ export function registerChannelTools(ctx: ToolContext) {
         title: `Remove payment channel "${String(current.name ?? channelId)}"`,
         details: { Channel: describe(current), Default: current.isDefault ? 'Yes — another channel will become the default' : 'No' },
         consequence: 'The channel can no longer be used for payments.',
-      });
+      }, 'channel');
       const res = await client.deleteChannel(channelId);
-      return ok(res ?? { deleted: true, channelId }, { note: `Approved (${approval}). Channel removed.` });
+      return okOrPending(res ?? { deleted: true, channelId }, { note: `Cleared (${approval}). Channel removed.` });
+    }),
+  );
+}
+
+/** Payment links: hosted pages where a customer enters their number and pays. Live keys only. */
+export function registerPaymentLinkTools(ctx: ToolContext) {
+  const { server, client } = ctx;
+
+  server.registerTool(
+    'palpluss_create_payment_link',
+    {
+      title: 'Create a payment link',
+      description:
+        'Create a PalPluss payment link — a page the customer opens to pay by M-Pesa. Fix the amount or let the customer type it; optionally pre-fill their phone. Nothing is charged until a customer pays. Returns the link URL to share. Needs a live key.',
+      inputSchema: {
+        amount: amountSchema.optional().describe('Fixed amount in whole shillings. Omit to let the customer enter it.'),
+        phone: phoneSchema.optional().describe('Pre-fill the customer\'s phone (optional).'),
+        customerName: z.string().max(120).optional(),
+        reference: z.string().max(120).optional().describe('Your order/invoice reference.'),
+        channelId: z.string().uuid().optional().describe('Payment channel to collect into (default channel if omitted).'),
+        expiry: z.enum(['1h', '6h', '24h', '72h', '168h', '720h', 'never']).optional().describe('How long the link works (default: never expires).'),
+        callbackUrl: callbackSchema,
+      },
+      annotations: { title: 'Create a payment link', ...WRITE },
+    },
+    guarded(ctx, 'palpluss_create_payment_link', async ({ amount, phone, customerName, reference, channelId, expiry, callbackUrl }) => {
+      const msisdn = phone ? requirePhone(phone) : undefined;
+      const res = await client.createPaymentLink({
+        ...(amount !== undefined ? { amount } : {}),
+        ...(msisdn ? { phone_number: msisdn } : {}),
+        ...(customerName ? { customer_name: customerName } : {}),
+        ...(reference ? { external_reference: reference } : {}),
+        ...(channelId ? { channel_id: channelId } : {}),
+        ...(expiry ? { expiry } : {}),
+        ...(callbackUrl ? { callbackUrl } : {}),
+      });
+      return ok(res, { note: 'Link created. Share the url with the customer; payments show up in palpluss_list_transactions.' });
+    }),
+  );
+
+  server.registerTool(
+    'palpluss_disable_payment_link',
+    {
+      title: 'Disable a payment link',
+      description: 'Stop a payment link from accepting payments. Past payments are kept. Needs the person\'s approval.',
+      inputSchema: { paymentLinkId: z.string().uuid() },
+      annotations: { title: 'Disable a payment link', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+    },
+    guarded(ctx, 'palpluss_disable_payment_link', async ({ paymentLinkId }) => {
+      const link = (await client.getPaymentLink(paymentLinkId)) as { url?: string; amount?: number | null; status?: string };
+      if (link.status === 'DISABLED') return ok(link, { note: 'Already disabled. Nothing changed.' });
+      const approval = await requireApproval(ctx, {
+        action: 'paylink_disable',
+        title: 'Disable a payment link',
+        details: { Link: String(link.url ?? paymentLinkId), Amount: link.amount ? kes(link.amount) : 'Customer enters it' },
+        consequence: 'Customers who open this link will no longer be able to pay through it.',
+      }, 'paylink');
+      await client.disablePaymentLink(paymentLinkId);
+      return ok({ paymentLinkId, status: 'DISABLED' }, { note: `Cleared (${approval}). The link no longer accepts payments.` });
+    }),
+  );
+}
+
+/** Follow a request PalPluss is holding for the merchant's approval. */
+export function registerApprovalTools(ctx: ToolContext) {
+  const { server, client } = ctx;
+  const DONE = new Set(['EXECUTED', 'FAILED', 'REJECTED', 'EXPIRED']);
+
+  server.registerTool(
+    'palpluss_wait_for_approval',
+    {
+      title: 'Wait for the merchant\'s approval',
+      description:
+        'Wait (up to 120 seconds) while the merchant approves or rejects a held payout or channel change in the PalPluss console, then return the outcome: EXECUTED (with the result), REJECTED, EXPIRED or FAILED. Returns PENDING_APPROVAL if they haven\'t decided yet — call it again later rather than retrying the original request.',
+      inputSchema: {
+        approvalId: z.string().uuid(),
+        timeoutSeconds: z.number().int().min(5).max(120).optional().describe('How long to wait (default 60).'),
+      },
+      annotations: { title: 'Wait for approval', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    guarded(ctx, 'palpluss_wait_for_approval', async ({ approvalId, timeoutSeconds }): Promise<CallToolResult> => {
+      const deadline = Date.now() + (timeoutSeconds ?? 60) * 1000;
+      let req = (await client.getApproval(approvalId)) as { status?: string };
+      while (!DONE.has(String(req.status)) && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 3000));
+        req = (await client.getApproval(approvalId)) as { status?: string };
+      }
+      const notes: Record<string, string> = {
+        EXECUTED: 'Approved and done. See result.',
+        FAILED: 'Approved, but PalPluss could not complete it. See error.',
+        REJECTED: 'The merchant declined. Nothing was done.',
+        EXPIRED: 'Nobody approved it in time. Nothing was done.',
+      };
+      return ok(req, { note: notes[String(req.status)] ?? 'Still waiting for the merchant to decide in the console.' });
     }),
   );
 }

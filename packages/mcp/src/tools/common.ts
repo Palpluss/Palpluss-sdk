@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { PalplussApiError, type PalplussClient } from '../api/client.js';
+import { PalplussApiError, isPendingApproval, type KeyInfo, type PalplussClient } from '../api/client.js';
 import type { PalplussMcpConfig } from '../config.js';
 import type { ApprovalRequest, Approver } from '../safety/approval.js';
 import type { AuditLog } from '../safety/audit.js';
@@ -15,6 +15,42 @@ export interface ToolContext {
   approver: Approver;
   audit: AuditLog;
   limiter: PayoutLimiter;
+  /**
+   * The key this server runs with (kind, mode, permissions, limits). Cached for
+   * a minute; pass `{ fresh: true }` before any approval decision, because a
+   * key can be switched between test and live at any time.
+   */
+  keyInfo: (opts?: { fresh?: boolean }) => Promise<KeyInfo>;
+}
+
+/** Assumed when the API can't say (an older API without GET /v1/api-key). */
+const UNKNOWN_KEY: KeyInfo = {
+  id: '',
+  name: '',
+  kind: 'STANDARD',
+  mode: 'live',
+  livemode: true,
+  scopes: 'all',
+  expiresAt: null,
+  connectedApp: null,
+  policy: null,
+};
+
+/** Fetch GET /v1/api-key at most once a minute. */
+export function cachedKeyInfo(client: PalplussClient): (opts?: { fresh?: boolean }) => Promise<KeyInfo> {
+  let cached: { at: number; value: Promise<KeyInfo> } | null = null;
+  return (opts) => {
+    if (opts?.fresh || !cached || Date.now() - cached.at > 60_000) {
+      const value = client.keyInfo().catch((err: unknown) => {
+        // Only "this endpoint doesn't exist" means an older API; anything else must surface.
+        if (err instanceof PalplussApiError && err.status === 404) return UNKNOWN_KEY;
+        cached = null;
+        throw err;
+      });
+      cached = { at: Date.now(), value };
+    }
+    return cached.value;
+  };
 }
 
 /** A refusal we raise ourselves (bad input, limits, declined approval). */
@@ -61,6 +97,19 @@ const HINTS: Record<string, string> = {
   CHANNEL_NOT_FOUND: 'No such payment channel on this account. List them with palpluss_list_payment_channels.',
   DUPLICATE_CHANNEL: 'This Paybill/account or Till is already a channel on this account.',
   RATE_LIMIT_EXCEEDED: 'The API key hit its rate limit (60 requests per minute). Slow down and retry shortly.',
+  INSUFFICIENT_SCOPE: 'This key was not given that permission. The merchant can grant it in the PalPluss console under API Keys.',
+  API_KEY_EXPIRED: 'This API key has expired. Create a new key in the PalPluss console.',
+  INVALID_ACCESS_TOKEN: 'The sign-in has expired or was revoked. Sign in to PalPluss again.',
+  IP_NOT_ALLOWED: 'This key only works from the IP addresses on its allowlist. Change the allowlist in the console under API Keys.',
+  NOT_AVAILABLE_IN_TEST_MODE: 'Test keys cannot change live settings (payment channels, payment links). Use a live key for this.',
+  PAYOUT_ABOVE_KEY_LIMIT: 'Above the per-payout limit set on this key in the PalPluss console.',
+  PAYOUT_DAILY_TOTAL_REACHED: 'Today\'s payout limit (Nairobi time) is used up. The merchant can raise it in the console, or wait until tomorrow.',
+  PAYOUT_DAILY_COUNT_REACHED: 'Today\'s payout count limit (Nairobi time) is used up. The merchant can raise it in the console, or wait until tomorrow.',
+  PAYOUT_RECIPIENT_NOT_ALLOWED: 'This number is not on the payout allowlist. The merchant can add it in the console (or in PALPLUSS_MCP_PAYOUT_ALLOWLIST).',
+  APPROVAL_REJECTED: 'The merchant declined this request in the PalPluss console. Nothing was done.',
+  APPROVAL_EXPIRED: 'Nobody approved the request in time. Nothing was done; ask again if it is still needed.',
+  PAYLINK_NOT_FOUND: 'No such payment link on this account. List them with palpluss_list_payment_links.',
+  PRICING_RULE_NOT_FOUND: 'No fee rule on this account\'s plan covers that service and amount.',
 };
 
 /** Fallback next step when PalPluss returns an error without a specific code. */
@@ -112,8 +161,31 @@ export function guarded<A>(ctx: ToolContext, tool: string, body: (args: A) => Pr
   };
 }
 
-/** Ask the person; throw a refusal unless they approve. Returns how it was approved. */
-export async function requireApproval(ctx: ToolContext, req: ApprovalRequest): Promise<string> {
+/** What kind of governed action this is, for deciding who approves it. */
+export type ActionKind = 'payout' | 'channel' | 'collect' | 'topup' | 'paylink';
+
+/**
+ * Ask for the human's yes, unless PalPluss itself already guarantees it:
+ * - test keys move simulated money only, so nothing to approve;
+ * - MCP keys whose payouts / channel changes PalPluss holds for console
+ *   approval — asking twice would only add a step;
+ * - in `backend` mode, MCP keys act within the permissions the merchant granted.
+ * Returns a short note on how the action was cleared.
+ */
+export async function requireApproval(ctx: ToolContext, req: ApprovalRequest, kind: ActionKind): Promise<string> {
+  const key = await ctx.keyInfo({ fresh: true });
+  if (key.mode === 'test') return 'test mode: simulated money, no approval needed';
+  if (key.kind === 'MCP' && key.policy) {
+    if (kind === 'payout' && key.policy.approvals.payouts) return 'the merchant approves it in the PalPluss console';
+    if (kind === 'channel' && key.policy.approvals.channels) return 'the merchant approves it in the PalPluss console';
+  }
+  if (ctx.config.approval === 'backend') {
+    if (key.kind === 'MCP') return 'within the permissions the merchant granted this key';
+    throw new ToolRefusal(
+      'This server relies on PalPluss to approve actions, which needs an MCP key. Create an MCP key in the PalPluss console under API Keys.',
+      'APPROVAL_UNAVAILABLE',
+    );
+  }
   const outcome = await ctx.approver(req);
   if (!outcome.approved) {
     throw new ToolRefusal(
@@ -134,6 +206,20 @@ export function requirePhone(input: string, field = 'phone'): string {
     );
   }
   return phone;
+}
+
+/**
+ * Turn an API result into a tool result, recognising requests PalPluss is
+ * holding for the merchant's approval.
+ */
+export function okOrPending(res: unknown, extra: { note: string; next?: string }): CallToolResult {
+  if (isPendingApproval(res)) {
+    return ok(res, {
+      note: 'Nothing has happened yet: PalPluss is holding this until the merchant approves it in the console (Approvals). Tell the person, and do not say it is done.',
+      next: `Call palpluss_wait_for_approval with approvalId ${res.approvalId}. It expires at ${res.expiresAt}.`,
+    });
+  }
+  return ok(res, extra);
 }
 
 export function kes(amount: number): string {

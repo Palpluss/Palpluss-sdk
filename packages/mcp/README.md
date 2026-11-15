@@ -2,9 +2,11 @@
 
 The PalPluss [Model Context Protocol](https://modelcontextprotocol.io) server. It lets AI tools that support MCP — such as Claude Code, Cursor and VS Code — work with your PalPluss account: check wallet balances, look up transactions, manage payment channels, collect with M-Pesa STK Push and send B2C payouts.
 
-Anything that moves money or changes where money lands **asks you to approve it first**. The approval request goes to your MCP client's interface, not to the AI model, so the model can't approve its own actions.
+Anything that moves money or changes where money lands needs a human's yes: a prompt in your MCP client, or approval in the PalPluss console. The AI model never sees or answers either, so it can't approve its own actions.
 
-> Requires Node.js 18+ and a PalPluss API key from [console.palpluss.com](https://console.palpluss.com) → API Keys.
+> Requires Node.js 18+ and a PalPluss API key from [console.palpluss.com](https://console.palpluss.com) → API Keys. For AI tools, choose **AI tools (MCP)** as the key type: PalPluss then enforces the permissions, payout limits and approvals you set on the key. A **test** key uses simulated money.
+
+**No install?** PalPluss also runs this server for you at `https://api.palpluss.com/mcp`. Clients with MCP sign-in (OAuth) open the PalPluss console to connect; others can send an MCP key as `Authorization: Bearer <key>`. See [docs.palpluss.com/sdks/mcp](https://docs.palpluss.com/sdks/mcp).
 
 ## Quick start
 
@@ -56,15 +58,23 @@ Then ask your assistant things like *"What's my PalPluss service wallet balance?
 | `palpluss_get_payment_channel` | read | One channel | — |
 | `palpluss_get_guardrails` | read | Enabled toolsets, limits, today's payout allowance | — |
 | `palpluss_integration_guide` | read | Accurate guidance for building PalPluss into an app | — |
+| `palpluss_get_wallet_history` | read | Charges, top-ups, refunds and payouts on both wallets | — |
+| `palpluss_estimate_fee` | read | Fee for an STK push or payout of a given amount | — |
+| `palpluss_list_payment_links` | read | Payment links | — |
+| `palpluss_get_payment_link` | read | One payment link | — |
+| `palpluss_list_approvals` | read | Requests held for, or past, console approval | — |
 | `palpluss_topup_service_wallet` | wallets | STK prompt to top up the service wallet | ✅ |
 | `palpluss_topup_b2c_wallet` | wallets | STK prompt to top up the B2C wallet | ✅ |
 | `palpluss_send_stk_push` | collect | Ask a customer to pay by M-Pesa PIN prompt | ✅ |
 | `palpluss_wait_for_payment` | collect | Wait up to 90s for a final status | — |
+| `palpluss_create_payment_link` | collect | Create a hosted payment page (live keys) | — |
+| `palpluss_disable_payment_link` | collect | Stop a link accepting payments (live keys) | ✅ |
 | `palpluss_create_payment_channel` | channels | Add a Paybill or Till (incl. a bank Paybill) | ✅ |
 | `palpluss_update_payment_channel` | channels | Rename or change a channel's numbers | ✅ |
 | `palpluss_set_default_payment_channel` | channels | Choose where STK payments go by default | ✅ |
 | `palpluss_delete_payment_channel` | channels | Remove a channel | ✅ |
 | `palpluss_send_payout` | payouts | Send money to an M-Pesa number | ✅ + limits |
+| `palpluss_wait_for_approval` | payouts / channels | Wait for the merchant's decision on a held request | — |
 
 **Toolsets.** `read` is always on. The default is `read,wallets,collect`. Channel changes and payouts are off until you switch them on:
 
@@ -76,8 +86,8 @@ PALPLUSS_MCP_TOOLSETS=read,wallets,collect,channels,payouts   # or: all
 
 PalPluss's own protections always apply, because every call goes through the public API: rate limits, per-phone limits, STK abuse protection and the STK success-rate pause. On top of those, this server adds:
 
-- **Your approval for every write.** Top-ups, STK pushes, payouts and channel changes send an approval request (MCP *elicitation*) that your client shows you, with the amount, the masked phone number and, for channels, what changes. If your client doesn't support elicitation, these tools refuse instead of going ahead.
-- **Payout limits** per API key: per payout, per day (total and count), and an optional allowlist of recipient numbers. They're checked before you're asked, and again just before the payout is sent. The limits are enforced by this server process, not by PalPluss, so if you run several copies each keeps its own tally.
+- **A human's yes for every write.** Top-ups, STK pushes, payouts and channel changes send an approval request (MCP *elicitation*) that your client shows you, with the amount, the masked phone number and, for channels, what changes. If your client doesn't support elicitation, these tools refuse instead of going ahead. Two exceptions, both decided from the key itself (`GET /v1/api-key`, read fresh before every decision): with an **MCP key** whose payouts or channel changes PalPluss holds for console approval, the request goes to the console instead (the tool returns `PENDING_APPROVAL`; follow it with `palpluss_wait_for_approval`); with a **test key**, nothing is asked because the money is simulated.
+- **Payout limits** per API key: per payout, per day (total and count), and an optional allowlist of recipient numbers. They're checked before you're asked, and again just before the payout is sent. These are enforced by this server process, so if you run several copies each keeps its own tally. Limits set on an MCP key in the console are enforced by PalPluss itself, for every copy.
 - **No double payments.** Payouts and top-ups carry an idempotency key, so an AI retrying after a timeout can't pay twice. Give each separate payout its own `reference`.
 - **Prompt-injection defence.** Text written by customers or providers (references, descriptions, result messages) is returned marked `untrusted:`. The server's instructions tell the AI never to act on it.
 - **Privacy.** Phone numbers are masked in everything returned to the AI and in the audit log. The API key is never logged.
@@ -91,7 +101,7 @@ PalPluss's own protections always apply, because every call goes through the pub
 | `PALPLUSS_API_KEY` | — (required) | Your PalPluss API key |
 | `PALPLUSS_MCP_TOOLSETS` | `read,wallets,collect` | Add `channels`, `payouts`, or use `all` |
 | `PALPLUSS_MCP_READ_ONLY` | `false` | `true` turns off every write tool |
-| `PALPLUSS_MCP_APPROVAL` | `elicit` | `none` disables approval prompts. Use it only for automated tests against a fake or local API, never with a live key |
+| `PALPLUSS_MCP_APPROVAL` | `elicit` | `backend` relies on PalPluss: needs an MCP key (standard keys are refused) and acts within the key's permissions, with payouts and channel changes held for console approval when the key asks for it. `none` disables approval prompts: use it only for automated tests against a fake or local API, never with a live key |
 | `PALPLUSS_MCP_MAX_PAYOUT` | `5000` | Largest single payout (KES) |
 | `PALPLUSS_MCP_DAILY_PAYOUT_TOTAL` | `20000` | Payout total per Nairobi day (KES) |
 | `PALPLUSS_MCP_DAILY_PAYOUT_COUNT` | `20` | Payouts per Nairobi day |
@@ -117,6 +127,10 @@ npx @palpluss/mcp --http --port 3333            # → http://127.0.0.1:3333/mcp
 - One session per MCP client. Approval prompts work across requests within it.
 - `PALPLUSS_MCP_HTTP_ALLOW_KEY_HEADER=true` lets one endpoint serve many merchants. Each session starts with the merchant's key in `X-PalPluss-Api-Key`, and the session is bound to that key.
 - Binds to `127.0.0.1` by default. Put it behind TLS if you expose it.
+
+## Stateless HTTP
+
+`handleStatelessMcpRequest(req, res, body, options)` serves one request without sessions, for hosts that run several instances behind a load balancer. Elicitation needs a session, so use `approval: 'backend'` with an MCP key, or pass your own `approver`.
 
 ## Embedding in your own app
 

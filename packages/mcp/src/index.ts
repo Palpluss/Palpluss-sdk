@@ -15,5 +15,5 @@ export {
 } from './config.js';
 export type { Approver, ApprovalRequest, ApprovalOutcome } from './safety/approval.js';
 export type { AuditEvent, AuditSink } from './safety/audit.js';
-export { PalplussApiError } from './api/client.js';
-export { startHttpServer, type HttpServerOptions } from './http.js';
+export { PalplussApiError, isPendingApproval, type KeyInfo, type PendingApproval } from './api/client.js';
+export { startHttpServer, handleStatelessMcpRequest, type HttpServerOptions } from './http.js';

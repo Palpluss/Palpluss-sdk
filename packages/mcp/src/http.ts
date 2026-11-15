@@ -148,3 +148,31 @@ export function startHttpServer(opts: HttpServerOptions): Promise<Server> {
 
   return new Promise((resolve) => httpServer.listen(port, host, () => resolve(httpServer)));
 }
+
+/**
+ * Handle one MCP request without sessions: a fresh server and transport per
+ * request, closed when the response ends. For hosts that run several
+ * instances behind a load balancer (no shared session state).
+ *
+ * Elicitation needs a session, so approval prompts are not available here:
+ * use `approval: 'backend'` with an MCP key (PalPluss holds payouts and
+ * channel changes for console approval), or pass your own `approver`.
+ *
+ * `body` is the already-parsed JSON body (frameworks like Express or NestJS
+ * parse it before your handler runs).
+ */
+export async function handleStatelessMcpRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  body: unknown,
+  options: CreateServerOptions,
+): Promise<void> {
+  const { server } = createPalplussMcpServer(options);
+  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+  res.on('close', () => {
+    void transport.close();
+    void server.close();
+  });
+  await server.connect(transport);
+  await transport.handleRequest(req, res, body);
+}

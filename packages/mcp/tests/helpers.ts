@@ -13,9 +13,14 @@ export interface FakeCall {
 
 type Route = (call: FakeCall) => { status?: number; body?: unknown; contentType?: string } | undefined;
 
-/** A fake PalPluss API: routes return envelopes; every call is recorded. */
+/**
+ * A fake PalPluss API: routes return envelopes; every call is recorded in
+ * `calls`, except the server's own key lookups (GET /v1/api-key), which go to
+ * `keyCalls` so tests can index the tool's real requests.
+ */
 export function fakeApi(route: Route) {
   const calls: FakeCall[] = [];
+  const keyCalls: FakeCall[] = [];
   const fetch = async (input: string, init: RequestInit): Promise<Response> => {
     const url = new URL(input);
     const call: FakeCall = {
@@ -24,7 +29,7 @@ export function fakeApi(route: Route) {
       headers: Object.fromEntries(Object.entries((init.headers ?? {}) as Record<string, string>).map(([k, v]) => [k.toLowerCase(), v])),
       body: init.body ? JSON.parse(String(init.body)) : undefined,
     };
-    calls.push(call);
+    (call.path === '/v1/api-key' ? keyCalls : calls).push(call);
     const r = route(call) ?? { status: 404, body: { success: false, error: { code: 'NOT_FOUND', message: 'no route' } } };
     const status = r.status ?? 200;
     return new Response(r.contentType === 'text/html' ? String(r.body) : JSON.stringify(r.body ?? {}), {
@@ -32,7 +37,7 @@ export function fakeApi(route: Route) {
       headers: { 'content-type': r.contentType ?? 'application/json', 'x-request-id': 'req-test' },
     });
   };
-  return { fetch, calls };
+  return { fetch, calls, keyCalls };
 }
 
 export const ok = (data: unknown) => ({ body: { success: true, data, requestId: 'req-test' } });

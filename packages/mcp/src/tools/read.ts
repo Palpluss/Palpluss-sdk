@@ -81,6 +81,79 @@ export function registerReadTools(ctx: ToolContext) {
   );
 
   server.registerTool(
+    'palpluss_get_wallet_history',
+    {
+      title: 'Wallet history',
+      description:
+        'Charges, top-ups, refunds and payouts on the service and B2C wallets, newest first, with the balance after each entry. Filter by wallet or category; page with nextCursor.',
+      inputSchema: {
+        wallet: z.enum(['service', 'b2c']).optional().describe('service = fees wallet, b2c = payout float. Omit for both.'),
+        category: z.enum(['charge', 'topup', 'refund', 'payout', 'bonus', 'other']).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        cursor: z.string().max(500).optional().describe('nextCursor from a previous page.'),
+      },
+      annotations: { title: 'Wallet history', ...READ },
+    },
+    guarded(ctx, 'palpluss_get_wallet_history', async (args) => ok(await client.walletHistory(args))),
+  );
+
+  server.registerTool(
+    'palpluss_estimate_fee',
+    {
+      title: 'Estimate a fee',
+      description:
+        'What PalPluss would charge (from the service wallet) for an STK push or a B2C payout of a given amount, using this account\'s pricing plan.',
+      inputSchema: {
+        service: z.enum(['STK', 'B2C']),
+        amount: z.number().positive().describe('Amount in Kenyan shillings.'),
+      },
+      annotations: { title: 'Estimate a fee', ...READ },
+    },
+    guarded(ctx, 'palpluss_estimate_fee', async ({ service, amount }) => ok(await client.estimateFee(service, amount))),
+  );
+
+  server.registerTool(
+    'palpluss_list_payment_links',
+    {
+      title: 'List payment links',
+      description: 'List the account\'s payment links, newest first, with their URL, amount and status. Page with nextCursor.',
+      inputSchema: {
+        limit: z.number().int().min(1).max(100).optional(),
+        cursor: z.string().max(500).optional(),
+      },
+      annotations: { title: 'List payment links', ...READ },
+    },
+    guarded(ctx, 'palpluss_list_payment_links', async (args) => ok(await client.listPaymentLinks(args))),
+  );
+
+  server.registerTool(
+    'palpluss_get_payment_link',
+    {
+      title: 'Get a payment link',
+      description: 'One payment link: URL, amount, status, expiry and how many payments it has received.',
+      inputSchema: { paymentLinkId: z.string().uuid() },
+      annotations: { title: 'Get a payment link', ...READ },
+    },
+    guarded(ctx, 'palpluss_get_payment_link', async ({ paymentLinkId }) => ok(await client.getPaymentLink(paymentLinkId))),
+  );
+
+  server.registerTool(
+    'palpluss_list_approvals',
+    {
+      title: 'List approval requests',
+      description:
+        'Payouts and channel changes this key asked for that PalPluss governs (MCP keys): waiting for approval, approved, done, rejected or expired.',
+      inputSchema: {
+        status: z.enum(['PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'EXPIRED', 'EXECUTED', 'FAILED']).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        cursor: z.string().max(500).optional(),
+      },
+      annotations: { title: 'List approval requests', ...READ },
+    },
+    guarded(ctx, 'palpluss_list_approvals', async (args) => ok(await client.listApprovals(args))),
+  );
+
+  server.registerTool(
     'palpluss_get_guardrails',
     {
       title: 'Guardrails in force',
@@ -91,14 +164,29 @@ export function registerReadTools(ctx: ToolContext) {
     },
     guarded(ctx, 'palpluss_get_guardrails', async () => {
       const { config } = ctx;
+      const key = await ctx.keyInfo();
+      const approvalText =
+        key.mode === 'test'
+          ? 'TEST MODE: this key moves simulated money only, so nothing needs approval.'
+          : config.approval === 'elicit'
+            ? 'Top-ups, STK pushes, payouts and channel changes ask the person to approve them in their app, unless PalPluss already holds them for console approval (see key.policy.approvals).'
+            : config.approval === 'backend'
+              ? 'PalPluss enforces this key\'s permissions and limits and holds payouts / channel changes for console approval when the merchant asked for that.'
+              : 'Approval prompts are switched off (PALPLUSS_MCP_APPROVAL=none).';
       return ok(
         {
+          key: {
+            kind: key.kind,
+            mode: key.mode,
+            livemode: key.livemode,
+            permissions: key.scopes === 'all' ? 'all (standard key)' : key.scopes.map((s) => s.scope),
+            expiresAt: key.expiresAt,
+            connectedApp: key.connectedApp,
+            policy: key.policy,
+          },
           toolsets: config.toolsets,
           writesEnabled: !config.readOnly,
-          approval:
-            config.approval === 'elicit'
-              ? 'Every top-up, STK push, payout and channel change asks the person to approve it in their app before anything happens.'
-              : 'Approval prompts are switched off (PALPLUSS_MCP_APPROVAL=none).',
+          approval: approvalText,
           limits: {
             maxPayoutKes: config.limits.maxPayout,
             dailyPayoutTotalKes: config.limits.dailyPayoutTotal,
@@ -111,7 +199,11 @@ export function registerReadTools(ctx: ToolContext) {
           },
           payoutsToday: ctx.config.toolsets.includes('payouts') ? ctx.limiter.remaining() : 'payouts toolset is off',
         },
-        { note: 'Limits here are enforced by this MCP server in addition to PalPluss\'s own limits.' },
+        {
+          note: key.policy
+            ? 'key.policy is enforced by PalPluss itself; limits are also enforced by this MCP server. The lower one wins.'
+            : 'Limits here are enforced by this MCP server in addition to PalPluss\'s own limits.',
+        },
       );
     }),
   );
