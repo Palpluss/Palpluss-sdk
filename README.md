@@ -12,6 +12,7 @@ All SDKs are built against a single shared API contract (`openapi/palpluss-v1.ya
 | Python | [`palpluss`](packages/python) | ✅ Available | [README](packages/python/README.md) |
 | PHP | [`palpluss/sdk`](packages/php) | ✅ Available | [README](packages/php/README.md) |
 | Go | [`github.com/palpluss/palpluss-go`](packages/go) | ✅ Available | [README](packages/go/README.md) |
+| MCP server (AI tools) | [`@palpluss/mcp`](packages/mcp) | 🧪 Ready, not yet on npm | [README](packages/mcp/README.md) |
 
 For full usage examples, parameters, and response shapes for every SDK, see [docs/usage.md](docs/usage.md).
 
@@ -163,7 +164,9 @@ palpluss-sdk/
 │   ├── typescript/       @palpluss/sdk        — reference implementation
 │   ├── python/           palpluss             — sync + async, Python 3.9+
 │   ├── php/              palpluss/sdk         — PHP 8.1+
-│   └── go/               palpluss-go          — Go 1.21+, zero deps
+│   ├── go/               palpluss-go          — Go 1.21+, zero deps
+│   ├── paylink/          @palpluss/paylink    — browser checkout widget
+│   └── mcp/              @palpluss/mcp        — MCP server for AI coding tools and Konaar
 └── scripts/              Tooling and automation
 ```
 
