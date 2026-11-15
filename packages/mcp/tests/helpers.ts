@@ -32,7 +32,8 @@ export function fakeApi(route: Route) {
     (call.path === '/v1/api-key' ? keyCalls : calls).push(call);
     const r = route(call) ?? { status: 404, body: { success: false, error: { code: 'NOT_FOUND', message: 'no route' } } };
     const status = r.status ?? 200;
-    return new Response(r.contentType === 'text/html' ? String(r.body) : JSON.stringify(r.body ?? {}), {
+    const body = status === 204 ? null : r.contentType === 'text/html' ? String(r.body) : JSON.stringify(r.body ?? {});
+    return new Response(body, {
       status,
       headers: { 'content-type': r.contentType ?? 'application/json', 'x-request-id': 'req-test' },
     });

@@ -1,6 +1,6 @@
 {
   "name": "@palpluss/mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "PalPluss MCP server — let AI coding tools check balances, manage payment channels and wallets, collect with M-Pesa STK Push and send B2C payouts, with human approval on anything that moves money.",
   "type": "module",

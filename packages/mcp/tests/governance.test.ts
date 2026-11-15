@@ -246,3 +246,59 @@ describe('mode switches', () => {
     await s.close();
   });
 });
+
+describe('0.2.1: signing domains and payment link deletion', () => {
+  const LINK = '55555555-5555-4555-8555-555555555555';
+
+  it('lists signing domains without secrets', async () => {
+    const s = await connect({
+      route: (c) => (c.path === '/v1/webhook-signing/domains' ? ok({ items: [{ domain: 'api.shop.co.ke', rotating: false }] }) : undefined),
+    });
+    const r = await s.call('palpluss_list_signing_domains');
+    expect(r.isError).toBe(false);
+    expect(r.json.result.items[0].domain).toBe('api.shop.co.ke');
+    await s.close();
+  });
+
+  it('deletes a payment link only with permanent: true, after approval', async () => {
+    const s = await connect({
+      toolsets: ['collect'],
+      route: (c) =>
+        c.method === 'GET' && c.path === `/v1/payment-links/${LINK}`
+          ? ok({ id: LINK, url: 'https://link.palpluss.com/x', amount: 100, status: 'DISABLED' })
+          : c.method === 'DELETE'
+            ? { status: 204 }
+            : undefined,
+    });
+    const disable = await s.call('palpluss_disable_payment_link', { paymentLinkId: LINK });
+    expect(disable.json.note).toContain('Already disabled');
+    const del = await s.call('palpluss_disable_payment_link', { paymentLinkId: LINK, permanent: true });
+    expect(del.json.result.status).toBe('DELETED');
+    expect(s.prompts).toHaveLength(1);
+    expect(s.prompts[0]).toContain('Delete a payment link');
+    expect(s.api.calls.find((c) => c.method === 'DELETE')?.path).toBe(`/v1/payment-links/${LINK}?permanent=true`);
+    await s.close();
+  });
+
+  it('explains the payment link limit', async () => {
+    const s = await connect({
+      toolsets: ['collect'],
+      route: () => ({
+        status: 400,
+        body: { success: false, error: { code: 'HTTP_400', message: 'Limit', details: { code: 'PAYLINK_LIMIT_REACHED', message: 'Limit', details: { limit: 10 } } } },
+      }),
+    });
+    const r = await s.call('palpluss_create_payment_link', { amount: 100 });
+    expect(r.json.error.code).toBe('PAYLINK_LIMIT_REACHED');
+    expect(r.json.hint).toContain('permanent: true');
+    await s.close();
+  });
+
+  it('teaches signature verification in the webhooks guide', async () => {
+    const s = await connect();
+    const r = await s.call('palpluss_integration_guide', { topic: 'webhooks' });
+    expect(r.text).toContain('webhook-signature');
+    expect(r.text).toContain('whsec_');
+    await s.close();
+  });
+});

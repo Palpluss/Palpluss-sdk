@@ -55,8 +55,27 @@ PalPluss POSTs to your \`callbackUrl\` when a transaction reaches a final state:
 - Fulfil only when \`status\` is SUCCESS. \`external_reference\` is your accountReference/reference.
 - Make the handler idempotent (key on transaction.id) — a callback can arrive more than once.
 - Don't trust the body alone: re-fetch GET ${BASE}/transactions/{id} with your API key before fulfilling.
-- Respond 2xx quickly; do slow work after acknowledging.
-- Store \`mpesa_receipt\` for reconciliation.`,
+- Respond 2xx within 8 seconds; do slow work after acknowledging. Failed deliveries are retried 4 times (after 10 s, 30 s, 1 min, 2 min).
+- Store \`mpesa_receipt\` for reconciliation.
+
+## Signatures
+If the merchant added the callback URL's domain under **Webhooks** in the console (check with palpluss_list_signing_domains), every callback to it is signed in the Standard Webhooks format. Callbacks to other domains are unsigned.
+- Headers: \`webhook-id\` (same on retries), \`webhook-timestamp\` (Unix seconds), \`webhook-signature\` (\`v1,<base64>\`; two space-separated values for 24 h after a secret rotation).
+- Signature = base64 HMAC-SHA256 of \`{webhook-id}.{webhook-timestamp}.{raw body}\`, keyed with the base64-decoded part of the secret after \`whsec_\`.
+- Verify against the RAW body (e.g. express.raw), reject timestamps more than 5 minutes off, compare in constant time, accept if any v1 signature matches.
+- Keep the secret in an environment variable such as PALPLUSS_WEBHOOK_SECRET. It is shown only in the console; never ask for it in chat.
+\`\`\`js
+import crypto from "node:crypto";
+export function verifyPalplussWebhook(rawBody, headers, secret) {
+  const id = headers["webhook-id"], ts = headers["webhook-timestamp"], sigs = headers["webhook-signature"];
+  if (!id || !ts || !sigs || Math.abs(Date.now() / 1000 - Number(ts)) > 300) return false;
+  const key = Buffer.from(secret.replace(/^whsec_/, ""), "base64");
+  const expected = crypto.createHmac("sha256", key).update(\`\${id}.\${ts}.\${rawBody}\`).digest("base64");
+  return sigs.split(" ").some((p) => { const [v, s] = p.split(",");
+    return v === "v1" && s?.length === expected.length && crypto.timingSafeEqual(Buffer.from(s), Buffer.from(expected)); });
+}
+\`\`\`
+Full guide with PHP and Python: https://docs.palpluss.com/guides/webhook-signing`,
 
   'b2c-payouts': `# B2C payouts (send money to an M-Pesa number)
 POST ${BASE}/b2c/payouts  (header \`Idempotency-Key\` strongly recommended)
@@ -103,7 +122,8 @@ A payment link is a hosted page where the customer enters their number and pays 
 - Omit \`amount\` to let the customer type it. \`phone_number\` pre-fills their number; \`channel_id\` picks the Paybill/Till (default channel otherwise).
 - \`expiry\`: 1h, 6h, 24h, 72h, 168h, 720h or never (default).
 - The response has \`url\` — share it. Payments appear as STK transactions and fire your callback like any STK push.
-- List: GET ${BASE}/payment-links; one: GET ${BASE}/payment-links/{id}; disable: DELETE ${BASE}/payment-links/{id}.`,
+- List: GET ${BASE}/payment-links; one: GET ${BASE}/payment-links/{id}; disable: DELETE ${BASE}/payment-links/{id}; delete for good: DELETE ${BASE}/payment-links/{id}?permanent=true.
+- An account can have up to 10 links (active or disabled); the 11th returns 400 PAYLINK_LIMIT_REACHED. Deleting frees a place; disabling doesn't.`,
 
   'test-mode': `# Test mode
 Create a **test** key in the console (API Keys → mode: Test). Test keys use the same endpoints and response shapes with simulated money:

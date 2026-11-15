@@ -63,12 +63,13 @@ Then ask your assistant things like *"What's my PalPluss service wallet balance?
 | `palpluss_list_payment_links` | read | Payment links | — |
 | `palpluss_get_payment_link` | read | One payment link | — |
 | `palpluss_list_approvals` | read | Requests held for, or past, console approval | — |
+| `palpluss_list_signing_domains` | read | Domains whose callbacks are signed (never the secrets) | — |
 | `palpluss_topup_service_wallet` | wallets | STK prompt to top up the service wallet | ✅ |
 | `palpluss_topup_b2c_wallet` | wallets | STK prompt to top up the B2C wallet | ✅ |
 | `palpluss_send_stk_push` | collect | Ask a customer to pay by M-Pesa PIN prompt | ✅ |
 | `palpluss_wait_for_payment` | collect | Wait up to 90s for a final status | — |
 | `palpluss_create_payment_link` | collect | Create a hosted payment page (live keys) | — |
-| `palpluss_disable_payment_link` | collect | Stop a link accepting payments (live keys) | ✅ |
+| `palpluss_disable_payment_link` | collect | Disable a link, or delete it to free a place (live keys) | ✅ |
 | `palpluss_create_payment_channel` | channels | Add a Paybill or Till (incl. a bank Paybill) | ✅ |
 | `palpluss_update_payment_channel` | channels | Rename or change a channel's numbers | ✅ |
 | `palpluss_set_default_payment_channel` | channels | Choose where STK payments go by default | ✅ |

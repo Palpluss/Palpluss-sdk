@@ -4,7 +4,7 @@
  * limits, STK abuse protection, transaction health — always apply.
  */
 
-export const USER_AGENT = 'palpluss-mcp/0.2.0';
+export const USER_AGENT = 'palpluss-mcp/0.2.1';
 
 export class PalplussApiError extends Error {
   constructor(
@@ -286,8 +286,15 @@ export class PalplussClient {
     return this.request('POST', '/payment-links', { body });
   }
 
-  disablePaymentLink(id: string) {
-    return this.request('DELETE', `/payment-links/${encodeURIComponent(id)}`);
+  /** Disable a link, or delete it for good with `permanent` (frees a place under the 10-link limit). */
+  disablePaymentLink(id: string, permanent = false) {
+    return this.request('DELETE', `/payment-links/${encodeURIComponent(id)}`, {
+      query: permanent ? { permanent: 'true' } : undefined,
+    });
+  }
+
+  listSigningDomains() {
+    return this.request('GET', '/webhook-signing/domains');
   }
 
   getApproval(id: string) {

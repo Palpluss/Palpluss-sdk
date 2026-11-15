@@ -387,22 +387,31 @@ export function registerPaymentLinkTools(ctx: ToolContext) {
   server.registerTool(
     'palpluss_disable_payment_link',
     {
-      title: 'Disable a payment link',
-      description: 'Stop a payment link from accepting payments. Past payments are kept. Needs the person\'s approval.',
-      inputSchema: { paymentLinkId: z.string().uuid() },
-      annotations: { title: 'Disable a payment link', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+      title: 'Disable or delete a payment link',
+      description:
+        'Stop a payment link from accepting payments (it stays in the list), or with permanent: true delete it, which frees a place under the limit of 10 links per account. Payments already made through it are kept either way. Needs the person\'s approval.',
+      inputSchema: {
+        paymentLinkId: z.string().uuid(),
+        permanent: z.boolean().optional().describe('Delete the link instead of disabling it (default false).'),
+      },
+      annotations: { title: 'Disable or delete a payment link', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
     },
-    guarded(ctx, 'palpluss_disable_payment_link', async ({ paymentLinkId }) => {
+    guarded(ctx, 'palpluss_disable_payment_link', async ({ paymentLinkId, permanent }) => {
       const link = (await client.getPaymentLink(paymentLinkId)) as { url?: string; amount?: number | null; status?: string };
-      if (link.status === 'DISABLED') return ok(link, { note: 'Already disabled. Nothing changed.' });
+      if (!permanent && link.status === 'DISABLED') return ok(link, { note: 'Already disabled. Nothing changed.' });
       const approval = await requireApproval(ctx, {
-        action: 'paylink_disable',
-        title: 'Disable a payment link',
+        action: permanent ? 'paylink_delete' : 'paylink_disable',
+        title: permanent ? 'Delete a payment link' : 'Disable a payment link',
         details: { Link: String(link.url ?? paymentLinkId), Amount: link.amount ? kes(link.amount) : 'Customer enters it' },
-        consequence: 'Customers who open this link will no longer be able to pay through it.',
+        consequence: permanent
+          ? 'The link stops working and is removed from your list. Payments already made through it stay in your transactions.'
+          : 'Customers who open this link will no longer be able to pay through it.',
       }, 'paylink');
-      await client.disablePaymentLink(paymentLinkId);
-      return ok({ paymentLinkId, status: 'DISABLED' }, { note: `Cleared (${approval}). The link no longer accepts payments.` });
+      await client.disablePaymentLink(paymentLinkId, !!permanent);
+      return ok(
+        { paymentLinkId, status: permanent ? 'DELETED' : 'DISABLED' },
+        { note: permanent ? `Cleared (${approval}). The link was deleted.` : `Cleared (${approval}). The link no longer accepts payments.` },
+      );
     }),
   );
 }

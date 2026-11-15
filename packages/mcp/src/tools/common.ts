@@ -109,6 +109,8 @@ const HINTS: Record<string, string> = {
   APPROVAL_REJECTED: 'The merchant declined this request in the PalPluss console. Nothing was done.',
   APPROVAL_EXPIRED: 'Nobody approved the request in time. Nothing was done; ask again if it is still needed.',
   PAYLINK_NOT_FOUND: 'No such payment link on this account. List them with palpluss_list_payment_links.',
+  PAYLINK_LIMIT_REACHED: 'The account already has 10 payment links. Delete one it no longer needs (palpluss_disable_payment_link with permanent: true, after asking the person) and try again.',
+  API_KEY_LIMIT_REACHED: 'The account already has 10 API keys. The merchant can delete one under API Keys in the console.',
   PRICING_RULE_NOT_FOUND: 'No fee rule on this account\'s plan covers that service and amount.',
 };
 

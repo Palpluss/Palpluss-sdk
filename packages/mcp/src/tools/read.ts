@@ -138,6 +138,18 @@ export function registerReadTools(ctx: ToolContext) {
   );
 
   server.registerTool(
+    'palpluss_list_signing_domains',
+    {
+      title: 'Webhook signing domains',
+      description:
+        'Domains whose callbacks PalPluss signs with Standard Webhooks headers (webhook-id, webhook-timestamp, webhook-signature). Use it to know whether a callback URL will be signed before writing a handler. Secrets are never returned: they are only shown in the PalPluss console (Webhooks). For how to verify, see palpluss_integration_guide topic "webhooks".',
+      inputSchema: {},
+      annotations: { title: 'Webhook signing domains', ...READ },
+    },
+    guarded(ctx, 'palpluss_list_signing_domains', async () => ok(await client.listSigningDomains())),
+  );
+
+  server.registerTool(
     'palpluss_list_approvals',
     {
       title: 'List approval requests',
